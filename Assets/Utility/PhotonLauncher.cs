@@ -7,25 +7,28 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     [Header("UI References")]
     [SerializeField] private GameObject gameOverUIPrefab;
 
+    [Header("Gestion de déconnexion")]
+    [SerializeField] private float autoReconnectDelay = 2f;
+    [SerializeField] private string lobbySceneName = "LobbyScene";
+    [SerializeField] private GameObject reconnectionNotificationPrefab;
+    
+    private bool isWaitingForReconnection = false;
+    private bool wasDisconnected = false;
+
     [PunRPC]
     public void RestartMatchSoftRPC()
     {
-        Debug.Log($"[RESET SOFT] RPC reçu sur client {PhotonNetwork.LocalPlayer.NickName} (Actor {PhotonNetwork.LocalPlayer.ActorNumber})");
-        // Détruit toutes les UI GameOver/Win
         foreach (var ui in GameObject.FindGameObjectsWithTag("GameOverUI"))
         {
             Destroy(ui);
         }
 
-        // NOUVEAU : Reset de la minimap
         var minimapCam = FindObjectOfType<MinimapCamera>();
         if (minimapCam != null)
         {
             minimapCam.ForceReset();
-            Debug.Log("[RESET SOFT] Minimap reset forcé");
         }
 
-        // Détruit le tank existant (s'il y en a un)
         TankHealth2D myTank = null;
         foreach (var t in FindObjectsOfType<TankHealth2D>())
         {
@@ -40,20 +43,16 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             PhotonNetwork.Destroy(myTank.gameObject);
         }
 
-        // Respawn réseau : chaque client ré-instancie son tank après destruction
         var spawner = FindObjectOfType<PhotonTankSpawner>();
         if (spawner != null)
         {
-            Debug.Log("[RESET SOFT] Appel SpawnTank() sur le client local");
             spawner.SpawnTank();
         }
     }
 
-    // RPC UNIQUE pour tout le monde
     [PunRPC]
     public void ShowWinnerToAllRPC(string winnerName, int winnerActorNumber)
     {
-        Debug.Log($"[PhotonLauncher] ShowWinnerToAllRPC reçu - Gagnant: {winnerName}, Mon ActorNumber: {PhotonNetwork.LocalPlayer.ActorNumber}");
         
         bool isWinner = PhotonNetwork.LocalPlayer.ActorNumber == winnerActorNumber;
         
@@ -94,12 +93,10 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
                 if (isWinner)
                 {
                     controller.ShowWin(winnerName);
-                    Debug.Log($"[PhotonLauncher] UI gagnant affichée pour {winnerName}");
                 }
                 else
                 {
                     controller.ShowWinner(winnerName);
-                    Debug.Log($"[PhotonLauncher] UI perdant affichée - {winnerName} a gagné");
                 }
             }
             
@@ -117,18 +114,14 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         CallRestartMatchSoft();
     }
 
-    // Méthode statique utilitaire pour déclencher le reset soft depuis n'importe où
     public static void CallRestartMatchSoft()
     {
-        Debug.Log("[PhotonLauncher] CallRestartMatchSoft() appelé");
         var launcher = FindObjectOfType<PhotonLauncher>();
         if (launcher != null)
         {
-            Debug.Log("[PhotonLauncher] launcher trouvé, envoi du RPC RestartMatchSoftRPC");
             if (launcher.photonView != null)
             {
                 launcher.photonView.RPC("RestartMatchSoftRPC", RpcTarget.All);
-                Debug.Log("[PhotonLauncher] RPC RestartMatchSoftRPC envoyé à tous");
             }
             else
             {
@@ -149,7 +142,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public LobbyUI lobbyUI;
 
-    private static readonly string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static readonly string chars = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
     private System.Random rng = new System.Random();
 
     public string GenerateRoomCode()
@@ -167,14 +160,30 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         roomName = GenerateRoomCode();
         RoomOptions options = new RoomOptions { MaxPlayers = maxPlayers, IsVisible = true, IsOpen = true };
         PhotonNetwork.CreateRoom(roomName, options, TypedLobby.Default);
-        Debug.Log($"[PhotonLauncher] Room privée créée avec le code : {roomName}");
     }
 
     public void JoinRoomByCode(string code)
     {
         roomName = code.ToUpper();
         PhotonNetwork.JoinRoom(roomName);
-        Debug.Log($"[PhotonLauncher] Tentative de rejoindre la room avec le code : {roomName}");
+    }
+
+    public void JoinRandomPublicRoom()
+    {
+        if (!PhotonNetwork.IsConnectedAndReady)
+        {
+            Debug.LogError("Pas connecté à Photon");
+            return;
+        }
+        
+        Debug.Log("Recherche d'une room publique...");
+        
+        // Spécifier des critères pour trouver les rooms publiques
+        ExitGames.Client.Photon.Hashtable expectedCustomRoomProperties = new ExitGames.Client.Photon.Hashtable();
+        expectedCustomRoomProperties["IsPublic"] = true;
+        
+        // Essayer de rejoindre une room publique aléatoire avec les critères spécifiés
+        PhotonNetwork.JoinRandomRoom(expectedCustomRoomProperties, 0);
     }
 
     public void SetPlayerName(string playerName)
@@ -187,7 +196,6 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         {
             PhotonNetwork.NickName = playerName;
         }
-        Debug.Log("[PhotonLauncher] NickName défini : " + PhotonNetwork.NickName);
     }
 
     private void Start()
@@ -199,38 +207,113 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         
         if (!PhotonNetwork.IsConnected)
         {
-            Debug.Log("[PhotonLauncher] Connexion à Photon...");
+            
+            PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 300000; // 5 minutes
+            PhotonNetwork.NetworkingClient.LoadBalancingPeer.TimePingInterval = 5000; // 5 secondes
+            PhotonNetwork.KeepAliveInBackground = 60; // 60 secondes
+            
             PhotonNetwork.ConnectUsingSettings();
         }
+        
+        StartCoroutine(ConnectionHeartbeat());
+    }
+    
+    private System.Collections.IEnumerator ConnectionHeartbeat()
+    {
+        WaitForSeconds wait = new WaitForSeconds(20f); // Envoie un heartbeat toutes les 20 secondes
+        
+        while (true)
+        {
+            yield return wait;
+            
+            if (PhotonNetwork.IsConnected)
+            {
+                
+                if (PhotonNetwork.InRoom)
+                {
+                    photonView.RPC("HeartbeatPing", RpcTarget.MasterClient);
+                }
+            }
+        }
+    }
+    
+    [PunRPC]
+    private void HeartbeatPing()
+    {
+        // Cette méthode ne fait rien, elle sert juste à maintenir la connexion
     }
 
     public override void OnConnectedToMaster()
     {
-        Debug.Log("[PHOTON LAUNCHER] OnConnectedToMaster appelé !");
         isConnectedAndReady = true;
+        wasDisconnected = false; 
+        
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            Debug.Log("[PHOTON LAUNCHER] Appel lobbyUI.OnPhotonReady()");
             lobbyUI.OnPhotonReady();
         }
         else
         {
             Debug.LogError("[PHOTON LAUNCHER] lobbyUI est null dans OnConnectedToMaster !");
         }
-        Debug.Log("[PhotonLauncher] Connected to Master Server - UI Ready");
+    }
+
+    public override void OnDisconnected(DisconnectCause cause)
+    {
+        
+        wasDisconnected = true;
+        isConnectedAndReady = false;
+        
+        ShowReconnectionNotification();
+        
+        StartCoroutine(ReturnToLobby());
+    }
+    
+    private void ShowReconnectionNotification()
+    {
+        if (reconnectionNotificationPrefab != null)
+        {
+            GameObject notif = Instantiate(reconnectionNotificationPrefab);
+            Destroy(notif, 3f);
+        }
+        else
+        {
+            Debug.LogWarning("[PhotonLauncher] reconnectionNotificationPrefab non assigné");
+        }
+    }
+    
+    private System.Collections.IEnumerator ReturnToLobby()
+    {
+        yield return new WaitForSeconds(autoReconnectDelay);
+        
+        if (PhotonNetwork.IsConnected)
+        {
+            PhotonNetwork.Disconnect();
+        }
+        
+        UnityEngine.SceneManagement.SceneManager.LoadScene(lobbySceneName);
     }
 
     public override void OnJoinedRoom()
     {
+        Debug.Log("Rejoint une room: " + PhotonNetwork.CurrentRoom.Name);
+        
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            lobbyUI.OnJoinedRoomUI(PhotonNetwork.CurrentRoom.Name);
+            // Vérifier si c'est une room publique ou privée
+            if (PhotonNetwork.CurrentRoom.Name.StartsWith("PublicRoom_"))
+            {
+                lobbyUI.OnJoinedRandomRoomUI();
+            }
+            else
+            {
+                // Room privée avec code
+                lobbyUI.OnJoinedRoomUI(PhotonNetwork.CurrentRoom.Name);
+            }
         }
         
-        Debug.Log($"[PhotonLauncher] Joined room: {PhotonNetwork.CurrentRoom.Name}");
-        Debug.Log("[PhotonLauncher] OnJoinedRoom appelé sur " + PhotonNetwork.LocalPlayer.NickName);
         
         var spawner = FindObjectOfType<PhotonTankSpawner>();
         if (spawner != null)
@@ -245,12 +328,33 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public override void OnJoinRoomFailed(short returnCode, string message)
     {
-        Debug.LogError($"JoinRoomFailed: {message} (code {returnCode})");
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
             lobbyUI.OnJoinRoomFailedUI();
         }
+    }
+
+    public override void OnJoinRandomFailed(short returnCode, string message)
+    {
+        Debug.Log("Aucune room publique trouvée, création d'une nouvelle room...");
+        
+        // Créer une nouvelle room publique avec des propriétés personnalisées
+        string roomName = "PublicRoom_" + Random.Range(1000, 9999);
+        
+        ExitGames.Client.Photon.Hashtable customRoomProperties = new ExitGames.Client.Photon.Hashtable();
+        customRoomProperties["IsPublic"] = true;
+        
+        RoomOptions roomOptions = new RoomOptions
+        {
+            MaxPlayers = 8,
+            IsVisible = true,
+            IsOpen = true,
+            CustomRoomProperties = customRoomProperties,
+            CustomRoomPropertiesForLobby = new string[] { "IsPublic" }
+        };
+        
+        PhotonNetwork.CreateRoom(roomName, roomOptions);
     }
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
@@ -261,7 +365,6 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             lobbyUI.HideWaitingForPlayerTextIfRoomFull();
             lobbyUI.UpdatePlayerList();
         }
-        Debug.Log($"[PhotonLauncher] Player {newPlayer.NickName} entered the room");
     }
 
     public override void OnPlayerLeftRoom(Player otherPlayer)
@@ -272,6 +375,5 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             lobbyUI.ShowWaitingForPlayerTextIfNotFull();
             lobbyUI.UpdatePlayerList();
         }
-        Debug.Log($"[PhotonLauncher] Player {otherPlayer.NickName} left the room");
     }
 }

@@ -6,16 +6,16 @@ using Photon.Realtime;
 using System.Text;
 using System.Collections.Generic;
 
-public class LobbyUI : MonoBehaviour
+public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
 {
     public static LobbyUI Instance { get; private set; }
     
-    // Player name input is now part of the main join panel
     [Header("UI Elements")]
     public TMP_InputField playerNameInput;
     public TMP_Text waitingForPlayerText;
     public Button createRoomButton;
     public Button joinRoomButton;
+    public Button goButton; // NOUVEAU BOUTON
     public TMP_InputField joinCodeInput;
     public TMP_Text createdCodeText;
     public GameObject joinPanel;
@@ -45,42 +45,44 @@ public class LobbyUI : MonoBehaviour
     {
         launcher = FindObjectOfType<PhotonLauncher>();
 
-        // Add listeners to buttons
         if (backButton != null)
             backButton.onClick.AddListener(OnBackToLobby);
         
         createRoomButton.onClick.AddListener(OnCreateRoom);
         joinRoomButton.onClick.AddListener(OnJoinRoom);
+        
+        // NOUVEAU : Connecter le bouton GO
+        if (goButton != null)
+            goButton.onClick.AddListener(OnGoButtonClicked);
 
-        // Add listener for player name input field
         if (playerNameInput != null)
         {
             playerNameInput.onEndEdit.AddListener(OnPlayerNameEndEdit);
         }
 
-        // Set initial UI state
         joinPanel.SetActive(true);
         waitingPanel.SetActive(false);
         createRoomButton.interactable = false;
         joinRoomButton.interactable = false;
+        
+        // NOUVEAU : Désactiver le bouton GO par défaut
+        if (goButton != null)
+            goButton.interactable = false;
+            
         createdCodeText.text = "";
         
-        // Initialize player name
         string defaultName = "Player_" + Random.Range(1000, 9999);
         if (playerNameInput != null)
         {
             playerNameInput.text = defaultName;
         }
-        // Set the initial name in Photon
         OnPlayerNameEndEdit(defaultName);
 
-        // Initialize player list
         if (playerListText != null)
         {
             playerListText.text = "";
         }
         
-        // Initialize timer and status text
         if (timerText != null)
         {
             timerText.text = "";
@@ -91,42 +93,45 @@ public class LobbyUI : MonoBehaviour
             roomStatusText.text = "";
         }
     }
+    
+    private void OnEnable()
+    {
+        // S'enregistrer aux callbacks Photon
+        PhotonNetwork.AddCallbackTarget(this);
+    }
+    
+    private void OnDisable()
+    {
+        // Se désenregistrer des callbacks Photon
+        PhotonNetwork.RemoveCallbackTarget(this);
+    }
 
-    // Called when the player finishes editing their name
     private void OnPlayerNameEndEdit(string newName)
     {
         if (launcher == null) return;
         
         string playerName = newName.Trim();
         
-        // Simple validation
         if (string.IsNullOrEmpty(playerName) || playerName.Length < 2)
         {
             if(createdCodeText != null) createdCodeText.text = "Name must be at least 2 characters.";
-            // Revert to a default name if input is invalid
             playerName = "Player_" + Random.Range(1000, 9999);
             if (playerNameInput != null) playerNameInput.text = playerName;
         }
         else if (playerName.Length > 20)
         {
             if(createdCodeText != null) createdCodeText.text = "Name cannot exceed 20 characters.";
-            // Truncate the name
             playerName = playerName.Substring(0, 20);
             if (playerNameInput != null) playerNameInput.text = playerName;
         }
         
-        // Set the player name via the launcher
         launcher.SetPlayerName(playerName);
-        Debug.Log($"[LobbyUI] Player name set to: {playerName}");
-
-        // If Photon is ready, update button interactability
+        
         if (launcher.isConnectedAndReady)
         {
             OnPhotonReady();
         }
     }
-
-    // --- Room Creation and Joining ---
 
     void OnCreateRoom()
     {
@@ -150,17 +155,29 @@ public class LobbyUI : MonoBehaviour
         }
     }
 
-    // --- Photon Callbacks Handled by UI ---
+    // NOUVELLE MÉTHODE : Gérer le clic sur le bouton GO
+    void OnGoButtonClicked()
+    {
+        launcher.JoinRandomPublicRoom();
+        joinPanel.SetActive(false);
+        waitingPanel.SetActive(true);
+        
+        // Changer le texte pour indiquer qu'on cherche une room
+        if (createdCodeText != null)
+            createdCodeText.text = "Searching for players...";
+    }
 
     public void OnPhotonReady()
     {
-        Debug.Log("[LOBBY UI] OnPhotonReady called: Activating buttons!");
         
-        // Enable buttons only if a name has been set
         if (!string.IsNullOrEmpty(PhotonNetwork.NickName))
         {
             createRoomButton.interactable = true;
             joinRoomButton.interactable = true;
+            
+            // NOUVEAU : Activer le bouton GO
+            if (goButton != null)
+                goButton.interactable = true;
         }
     }
 
@@ -174,6 +191,19 @@ public class LobbyUI : MonoBehaviour
     public void OnJoinedRoomUI(string code)
     {
         createdCodeText.text = "Room code: " + code;
+        joinPanel.SetActive(false);
+        waitingPanel.SetActive(true);
+        UpdatePlayerList();
+        HideWaitingForPlayerTextIfRoomFull();
+    }
+
+    // NOUVELLE MÉTHODE : Gérer quand on rejoint une room publique
+    public void OnJoinedRandomRoomUI()
+    {
+        // Si c'est une room publique (pas de code), afficher un message différent
+        if (createdCodeText != null)
+            createdCodeText.text = "Joined public match!";
+            
         joinPanel.SetActive(false);
         waitingPanel.SetActive(true);
         UpdatePlayerList();
@@ -209,7 +239,6 @@ public class LobbyUI : MonoBehaviour
 
     public void OnDisconnectedUI()
     {
-        Debug.Log("[LobbyUI] OnDisconnectedUI - Connection lost");
         
         joinPanel.SetActive(true);
         waitingPanel.SetActive(false);
@@ -263,8 +292,6 @@ public class LobbyUI : MonoBehaviour
         }
     }
     
-    // --- Match Timer and Status Display ---
-    
     public void UpdateTimer(int remainingSeconds)
     {
         if (timerText != null)
@@ -282,4 +309,35 @@ public class LobbyUI : MonoBehaviour
             roomStatusText.text = status;
         }
     }
+    
+    // Appelé quand on quitte une room et revient au lobby
+    public void OnLeftRoom()
+    {
+        // Réinitialiser le panel de skins sans forcer sa fermeture
+        SimpleSkinSelector skinSelector = FindObjectOfType<SimpleSkinSelector>();
+        if (skinSelector != null)
+        {
+            // Juste cacher le panel s'il est ouvert, sans réinitialiser tout
+            skinSelector.HideSkinPanel();
+        }
+        
+        // Fermer le settings panel si ouvert
+        SettingsPanelManager settingsManager = FindObjectOfType<SettingsPanelManager>();
+        if (settingsManager != null)
+        {
+            settingsManager.HideSettingsPanel();
+        }
+        
+        // Autres réinitialisations du lobby si nécessaire
+        joinPanel.SetActive(true);
+        waitingPanel.SetActive(false);
+    }
+    
+    // Autres méthodes requises par IMatchmakingCallbacks (vides si pas utilisées)
+    public void OnFriendListUpdate(System.Collections.Generic.List<FriendInfo> friendList) { }
+    public void OnCreatedRoom() { }
+    public void OnCreateRoomFailed(short returnCode, string message) { }
+    public void OnJoinedRoom() { }
+    public void OnJoinRoomFailed(short returnCode, string message) { }
+    public void OnJoinRandomFailed(short returnCode, string message) { }
 }

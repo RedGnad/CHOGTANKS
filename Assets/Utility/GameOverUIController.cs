@@ -5,30 +5,28 @@ public class GameOverUIController : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI gameOverText;
     [SerializeField] private TextMeshProUGUI winText;
-    [SerializeField] private TextMeshProUGUI winnerText; // NOUVEAU : Texte pour afficher le gagnant
+    [SerializeField] private TextMeshProUGUI winnerText; 
 
     private void Awake()
     {
         if (gameOverText != null) gameOverText.gameObject.SetActive(false);
         if (winText      != null) winText.gameObject.SetActive(false);
-        if (winnerText   != null) winnerText.gameObject.SetActive(false); // NOUVEAU
+        if (winnerText   != null) winnerText.gameObject.SetActive(false); 
     }
 
     public void ShowGameOver()
     {
         if (gameOverText != null) gameOverText.gameObject.SetActive(true);
         if (winText      != null) winText.gameObject.SetActive(false);
-        if (winnerText   != null) winnerText.gameObject.SetActive(false); // NOUVEAU
+        if (winnerText   != null) winnerText.gameObject.SetActive(false); 
     }
 
-    // MODIFICATION : Ajouter le paramètre winnerName
     public void ShowWin(string winnerName = "")
     {
         if (gameOverText != null) gameOverText.gameObject.SetActive(false);
         if (winText      != null) 
         {
             winText.gameObject.SetActive(true);
-            // OPTIONNEL : Personnaliser le message de victoire
             if (!string.IsNullOrEmpty(winnerName))
             {
                 winText.text = $"You Win, {winnerName}!";
@@ -37,7 +35,6 @@ public class GameOverUIController : MonoBehaviour
         if (winnerText   != null) winnerText.gameObject.SetActive(false); // NOUVEAU
     }
 
-    // NOUVELLE MÉTHODE : Afficher le gagnant pour les perdants
     public void ShowWinner(string winnerName)
     {
         if (gameOverText != null) gameOverText.gameObject.SetActive(false);
