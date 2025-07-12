@@ -18,7 +18,6 @@ namespace Sample
 
         public void OnAfterDeserialize()
         {
-            // Extract scene name from path
             if (!string.IsNullOrEmpty(scenePath))
             {
                 int lastSlash = scenePath.LastIndexOf('/');

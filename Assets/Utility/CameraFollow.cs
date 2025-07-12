@@ -1,5 +1,5 @@
 using UnityEngine;
-using Photon.Pun; // Ajout de la référence Photon
+using Photon.Pun;
 
 public class CameraFollow : MonoBehaviour
 {
@@ -50,7 +50,6 @@ public class CameraFollow : MonoBehaviour
 
         private void FindPlayerInstance()
     {
-        // Recherche de manière robuste le tank du joueur local
         PhotonView[] photonViews = FindObjectsOfType<PhotonView>();
         foreach (PhotonView pv in photonViews)
         { 
@@ -58,7 +57,6 @@ public class CameraFollow : MonoBehaviour
             if (pv.IsMine && pv.CompareTag("Player"))
             {
                 target = pv.transform;
-                Debug.Log("[CameraFollow] Cible trouvée : " + target.name);
                 return; // On a trouvé notre tank, on arrête la recherche
             }
         }

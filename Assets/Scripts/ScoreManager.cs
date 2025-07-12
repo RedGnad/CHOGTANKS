@@ -8,8 +8,8 @@ using System.Runtime.InteropServices;
 
 public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
 {
-    private const float ROOM_LIFETIME = 240f; // 4 minutes en secondes
-    private const float RESPAWN_TIME = 5f; // 5 secondes pour respawn
+    private const float ROOM_LIFETIME = 240f;
+    private const float RESPAWN_TIME = 5f;
     
     private const byte SCORE_UPDATE_EVENT = 1;
     private const byte MATCH_END_EVENT = 2;
@@ -21,8 +21,8 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private static extern bool SubmitScoreJS(string score, string bonus, string walletAddress);
 #endif
     
-    private Dictionary<int, int> playerScores = new Dictionary<int, int>(); // ActorNumber -> Score
-    private Dictionary<string, string> playerWallets = new Dictionary<string, string>(); // ActorNumber (string) -> Wallet Address
+    private Dictionary<int, int> playerScores = new Dictionary<int, int>(); 
+    private Dictionary<string, string> playerWallets = new Dictionary<string, string>();
     private float matchStartTime;
     private bool matchEnded = false;
     
@@ -49,41 +49,32 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
     }
     
-    // Méthode pour réinitialiser complètement l'état du manager
     public void ResetManager()
     {
-        Debug.Log("[SCORE] Réinitialisation complète du ScoreManager");
         playerScores.Clear();
         playerWallets.Clear();
         matchStartTime = 0;
         matchEnded = false;
         
-        // Arrêter toutes les coroutines en cours
         StopAllCoroutines();
     }
     
     public override void OnJoinedRoom()
     {
-        Debug.Log("[SCORE] OnJoinedRoom - Réinitialisation et démarrage du match");
         
-        // Réinitialiser l'état du manager quand on rejoint une nouvelle room
         ResetManager();
         
-        // Démarrer le match
         StartMatch();
         
-        // Enregistrer l'adresse wallet du joueur si disponible
         if (!string.IsNullOrEmpty(PlayerSession.WalletAddress))
         {
             string walletAddress = PlayerSession.WalletAddress;
             int actorNumber = PhotonNetwork.LocalPlayer.ActorNumber;
             
-            // Envoyer l'info wallet aux autres joueurs
             object[] walletData = new object[] { actorNumber.ToString(), walletAddress };
             RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
             PhotonNetwork.RaiseEvent(3, walletData, options, SendOptions.SendReliable);
             
-            // Enregistrer localement
             playerWallets[actorNumber.ToString()] = walletAddress;
         }
     }
@@ -92,30 +83,27 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         if (PhotonNetwork.IsMasterClient)
         {
-            Debug.Log("[SCORE] MasterClient démarre un nouveau match");
             matchStartTime = Time.time;
             matchEnded = false;
             
-            // Initialiser les scores pour tous les joueurs actuels
             playerScores.Clear();
             foreach (Player player in PhotonNetwork.PlayerList)
             {
                 playerScores[player.ActorNumber] = 0;
             }
             
-            // Démarrer le timer
             StartCoroutine(MatchTimer());
             
-            // Synchroniser le temps de départ avec tous les clients
-            SyncMatchStartTime();
+            SyncMatchTime(ROOM_LIFETIME);
             
-            // Synchroniser les scores avec tous les clients
             SyncScores();
         }
         else
         {            
-            // Pour les clients non-master, démarrer aussi un timer local
-            // qui sera synchronisé via les événements
+            // Pour les joueurs non-master, initialiser une valeur par défaut pour matchStartTime
+            // afin que le timer puisse fonctionner en attendant la synchronisation
+            matchStartTime = Time.time - 1; // Commencer à ROOM_LIFETIME - 1 seconde pour indiquer que le match est en cours
+            
             StartCoroutine(MatchTimer());
             Debug.Log("[SCORE] Client non-master attend la synchronisation des scores et du timer");
         }
@@ -124,43 +112,40 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private IEnumerator MatchTimer()
     {
         float timeLeft = ROOM_LIFETIME;
+        bool waitingForSync = !PhotonNetwork.IsMasterClient;
         
-        // Mettre à jour le statut de la room
         if (LobbyUI.Instance != null)
         {
             LobbyUI.Instance.UpdateRoomStatus("Ongoing Match");
+            
+            // Assurer que le timer est visible immédiatement pour tous
+            if (waitingForSync)
+            {
+                LobbyUI.Instance.UpdateTimer((int)timeLeft);
+            }
         }
         
-        // Synchroniser le timer toutes les 5 secondes si on est MasterClient
         float nextSyncTime = 0f;
         
         while (timeLeft > 0 && !matchEnded)
         {
-            // Si le matchStartTime n'est pas encore défini, attendre
-            if (matchStartTime <= 0)
-            {
-                yield return null;
-                continue;
-            }
-            
+            // Supprimer cette condition qui bloquait la mise à jour du timer
+            // pour les nouveaux joueurs dont le matchStartTime était 0
             timeLeft = ROOM_LIFETIME - (Time.time - matchStartTime);
             
-            // Mettre à jour le timer UI
             if (LobbyUI.Instance != null)
             {
                 LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeLeft));
             }
             
-            // Synchroniser périodiquement le timer si on est MasterClient
             if (PhotonNetwork.IsMasterClient && Time.time > nextSyncTime)
             {
-                SyncMatchStartTime();
-                nextSyncTime = Time.time + 5f;  // Sync toutes les 5 secondes
+                SyncMatchTime(timeLeft);
+                nextSyncTime = Time.time + 5f; 
             }
             
             yield return null;
             
-            // Vérifier si la partie est terminée
             if (timeLeft <= 0 && PhotonNetwork.IsMasterClient)
             {
                 EndMatch();
@@ -182,20 +167,16 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             playerScores[killerActorNumber] = 1;
         }
         int scoreAfter = playerScores[killerActorNumber];
-        Debug.Log($"[SCORE] AddKill: Joueur {killerActorNumber} passe de {scoreBefore} à {scoreAfter}");
-
-        // Envoyer l'événement pour mettre à jour les scores
+        
         RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
         object[] content = new object[] { killerActorNumber, playerScores[killerActorNumber] };
         PhotonNetwork.RaiseEvent(SCORE_UPDATE_EVENT, content, options, SendOptions.SendReliable);
 
-        // Forcer la resynchro globale après chaque kill (anti-doublon)
         if (PhotonNetwork.IsMasterClient)
         {
             SyncScores();
         }
 
-        // Mettre à jour l'UI
         if (LobbyUI.Instance != null)
         {
             LobbyUI.Instance.UpdatePlayerList();
@@ -206,9 +187,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         int before = playerScores.ContainsKey(actorNumber) ? playerScores[actorNumber] : -1;
         playerScores[actorNumber] = score;
-        Debug.Log($"[SCORE] HandleScoreUpdate: Joueur {actorNumber} score {before} → {score}");
-
-        // Mettre à jour l'UI si nécessaire
+        
         if (LobbyUI.Instance != null)
         {
             LobbyUI.Instance.UpdatePlayerList();
@@ -217,26 +196,19 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     
     public void PlayerDied(int victimActorNumber, int killerActorNumber, int victimViewID)
     {
-        Debug.Log($"[SCORE] PlayerDied: Victime {victimActorNumber}, Tueur {killerActorNumber}, ViewID {victimViewID}");
-
-        // Seul le MasterClient gère la logique de mort pour éviter les conflits.
+        
         if (!PhotonNetwork.IsMasterClient) return;
 
-        // Ajouter un point au tueur
         if (killerActorNumber > 0 && killerActorNumber != victimActorNumber)
         {
             AddKill(killerActorNumber);
         }
 
-        // Détruire l'ancien tank de la victime
         PhotonView victimView = PhotonView.Find(victimViewID);
         if (victimView != null)
         {
-            Debug.Log($"[SCORE] Destruction du tank de la victime (ViewID: {victimViewID})");
             PhotonNetwork.Destroy(victimView.gameObject);
             
-            // Démarrer la coroutine de respawn pour le joueur mort
-            Debug.Log($"[SCORE] Démarrage de la coroutine RespawnPlayer pour l'acteur {victimActorNumber}");
             StartCoroutine(RespawnPlayer(victimActorNumber));
         }
         else
@@ -247,26 +219,19 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     
     private IEnumerator RespawnPlayer(int actorNumber)
     {
-        Debug.Log($"[ScoreManager] Début du respawn pour le joueur {actorNumber} dans {RESPAWN_TIME} secondes");
         yield return new WaitForSeconds(RESPAWN_TIME);
         
-        // Si c'est notre joueur local
         if (PhotonNetwork.LocalPlayer.ActorNumber == actorNumber)
         {
-            Debug.Log($"[ScoreManager] Respawn pour joueur local {PhotonNetwork.LocalPlayer.NickName}");
             
-            // Détruire l'UI GameOver si elle existe
             foreach (var ui in GameObject.FindGameObjectsWithTag("GameOverUI"))
             {
-                Debug.Log("[ScoreManager] Destruction d'une UI GameOver");
                 Destroy(ui);
             }
             
-            // Respawner le tank
             var spawner = FindObjectOfType<PhotonTankSpawner>();
             if (spawner != null)
             {
-                Debug.Log("[ScoreManager] PhotonTankSpawner trouvé, appel de SpawnTank()");
                 spawner.SpawnTank();
             }
             else
@@ -285,13 +250,11 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         if (matchEnded) return;
         matchEnded = true;
         
-        // Mettre à jour le statut UI
         if (LobbyUI.Instance != null)
         {
             LobbyUI.Instance.UpdateRoomStatus("Match terminé!");
         }
         
-        // Trouver le joueur avec le score le plus élevé
         int highestScore = -1;
         int winnerActorNumber = -1;
         string winnerName = "Personne";
@@ -303,7 +266,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 highestScore = pair.Value;
                 winnerActorNumber = pair.Key;
                 
-                // Trouver le nom du joueur gagnant
                 foreach (Player player in PhotonNetwork.PlayerList)
                 {
                     if (player.ActorNumber == winnerActorNumber)
@@ -316,22 +278,18 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
         }
         
-        Debug.Log($"[MATCH END] Gagnant: {winnerName} (Actor {winnerActorNumber}) avec {highestScore} points");
         
-        // Ajouter un point bonus au gagnant
         if (winnerActorNumber != -1)
         {
             playerScores[winnerActorNumber]++;
-            highestScore++; // Mettre à jour aussi le score pour l'affichage
+            highestScore++;
             
-            // Mettre à jour l'UI avec le score final
             if (LobbyUI.Instance != null)
             {
                 LobbyUI.Instance.UpdatePlayerList();
             }
         }
         
-        // Envoyer l'événement de fin de match à tous les joueurs
         if (PhotonNetwork.IsMasterClient)
         {
             object[] content = new object[] { winnerActorNumber, winnerName, highestScore };
@@ -340,49 +298,38 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
         else
         {
-            // Si ce n'est pas le MasterClient, il ne doit pas appeler ShowWinnerAndSubmitScores ici
-            // car il recevra l'événement MATCH_END_EVENT qui appellera ShowWinnerAndSubmitScores
             return;
         }
         
-        // Si c'est le MasterClient, afficher le gagnant et soumettre les scores
         ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
     }
     
     public void ShowWinnerAndSubmitScores(int winnerActorNumber, string winnerName, int highestScore)
     {
-        // Afficher le gagnant dans le statut de la room
         if (LobbyUI.Instance != null)
         {
             LobbyUI.Instance.UpdateRoomStatus($"Victoire : {winnerName} avec {highestScore} points!");
         }
         
-        // Soumettre les scores à Firebase
         int localPlayerScore = 0;
         if (playerScores.ContainsKey(PhotonNetwork.LocalPlayer.ActorNumber))
         {
             localPlayerScore = playerScores[PhotonNetwork.LocalPlayer.ActorNumber];
         }
         
-        // Désactivation du bonus pour éviter double comptage dans Firebase
-        int bonus = 0; // plus de bonus de victoire
+        int bonus = 0;
         
-        // Soumettre le score à Firebase
         if (Application.platform == RuntimePlatform.WebGLPlayer)
         {
             SubmitScoreToFirebase(localPlayerScore, bonus);
         }
         
-        // La room reste ouverte, on ne la quitte pas automatiquement
-        // On pourrait ajouter un bouton pour quitter ou redémarrer le match
     }
     
     private void SubmitScoreToFirebase(int score, int bonus)
     {
-        // 🔍 Recherche d'adresse wallet dans plusieurs sources
         string walletAddress = "";
         
-        // 1. D'abord, essayer AppKit (source principale de vérité)
         try
         {
             if (Reown.AppKit.Unity.AppKit.IsInitialized && 
@@ -393,7 +340,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 if (!string.IsNullOrEmpty(appKitAddress))
                 {
                     walletAddress = appKitAddress;
-                    Debug.Log($"[SCORE] ✅ Wallet trouvé dans AppKit: {walletAddress}");
                 }
             }
         }
@@ -402,18 +348,15 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             Debug.LogWarning($"[SCORE] ⚠️ Erreur AppKit: {ex.Message}");
         }
         
-        // 2. Si AppKit échoue, essayer PlayerPrefs
         if (string.IsNullOrEmpty(walletAddress))
         {
             string prefsAddress = PlayerPrefs.GetString("walletAddress", "");
             if (!string.IsNullOrEmpty(prefsAddress))
             {
                 walletAddress = prefsAddress;
-                Debug.Log($"[SCORE] ✅ Wallet trouvé dans PlayerPrefs: {walletAddress}");
             }
         }
         
-        // 3. Enfin, essayer PlayerSession
         if (string.IsNullOrEmpty(walletAddress))
         {
             try
@@ -421,7 +364,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 if (PlayerSession.IsConnected && !string.IsNullOrEmpty(PlayerSession.WalletAddress))
                 {
                     walletAddress = PlayerSession.WalletAddress;
-                    Debug.Log($"[SCORE] ✅ Wallet trouvé dans PlayerSession: {walletAddress}");
                 }
             }
             catch (System.Exception ex)
@@ -430,31 +372,22 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
         }
         
-        // 4. Si toujours rien, utiliser "anonymous" comme fallback
         if (string.IsNullOrEmpty(walletAddress))
         {
             walletAddress = "anonymous";
-            Debug.LogWarning($"[SCORE] ⚠️ Aucun wallet trouvé, utilisation de '{walletAddress}' par défaut");
         }
         
-        // Appel JavaScript pour soumettre le score
-        // Ceci est appelé via JSLib
 #if UNITY_WEBGL && !UNITY_EDITOR
         SubmitScoreJS(score.ToString(), bonus.ToString(), walletAddress);
-        Debug.Log($"[SCORE] 🚀 Score soumis à Firebase pour {walletAddress}: {score} (+{bonus})");
 #else
-        Debug.Log($"[SCORE] 🔧 [MOCK] Score soumis à Firebase: {score}, bonus: {bonus}, wallet: {walletAddress}");
 #endif
     }
     
-    // On ne quitte plus la room automatiquement
-    // Si l'utilisateur veut quitter, il peut utiliser le bouton de retour
     
     private void SyncScores()
     {
         if (!PhotonNetwork.IsMasterClient) return;
         
-        // Créer le tableau d'objets pour synchroniser les scores
         List<object> scoreList = new List<object>();
         foreach (var pair in playerScores)
         {
@@ -462,20 +395,19 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             scoreList.Add(pair.Value);
         }
         
-        // Envoyer l'événement pour synchroniser les scores
         RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
         PhotonNetwork.RaiseEvent(4, scoreList.ToArray(), options, SendOptions.SendReliable);
     }
     
-    // Synchronise le temps de départ du match avec tous les clients
-    private void SyncMatchStartTime()
+    private void SyncMatchTime(float timeLeft)
     {
         if (!PhotonNetwork.IsMasterClient) return;
         
-        // Envoyer l'événement pour synchroniser le temps de départ
-        Debug.Log($"[SCORE] Synchronisation du temps de départ: {matchStartTime}");
         RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
-        PhotonNetwork.RaiseEvent(MATCH_START_TIME_EVENT, matchStartTime, options, SendOptions.SendReliable);
+        PhotonNetwork.RaiseEvent(SYNC_TIMER_EVENT, timeLeft, options, SendOptions.SendReliable);
+        
+        // Pour debug, afficher le temps envoyé
+        Debug.Log($"[SCORE] Master envoie le temps restant: {timeLeft} secondes");
     }
     
     public void OnEvent(EventData photonEvent)
@@ -497,9 +429,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             string winnerName = (string)data[1];
             int highestScore = (int)data[2];
             
-            // Afficher le gagnant et soumettre les scores
             ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
-            Debug.Log($"[MATCH END] Gagnant: {winnerName} (Actor {winnerActorNumber}) avec {highestScore} points");
         }
         else if (eventCode == 3) // Wallet info
         {
@@ -513,7 +443,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             object[] data = (object[])photonEvent.CustomData;
             
-            // Reconstruire le dictionnaire des scores
             playerScores.Clear();
             for (int i = 0; i < data.Length; i += 2)
             {
@@ -522,42 +451,42 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 playerScores[actorNumber] = score;
             }
             
-            // Mettre à jour l'UI
             if (LobbyUI.Instance != null)
             {
                 LobbyUI.Instance.UpdatePlayerList();
             }
         }
-        else if (eventCode == MATCH_START_TIME_EVENT) // Sync match start time
+        else if (eventCode == SYNC_TIMER_EVENT) // Nouveau système de synchronisation
         {
-            float serverTime = (float)photonEvent.CustomData;
-            float ping = PhotonNetwork.GetPing() / 1000f; // Convertir ping de ms à s
-            matchStartTime = serverTime + ping/2; // Ajouter la moitié du ping pour compenser la latence
+            float timeRemaining = (float)photonEvent.CustomData;
+            // Ajuster le temps de démarrage pour que le calcul donne le bon temps restant
+            matchStartTime = Time.time - (ROOM_LIFETIME - timeRemaining);
             
-            Debug.Log($"[SCORE] Temps de début synchronisé: {matchStartTime}, ping: {ping}s");
+            // Pour debug, vérifier le temps reçu
+            Debug.Log($"[SCORE] Client reçoit le temps restant: {timeRemaining} secondes");
+            
+            // Mettre à jour immédiatement le timer UI
+            if (LobbyUI.Instance != null)
+            {
+                LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeRemaining));
+            }
         }
     }
     
     public override void OnMasterClientSwitched(Player newMasterClient)
     {
-        Debug.Log($"[SCORE] MasterClient switched to {newMasterClient.NickName}");
         
-        // Si je deviens le nouveau MasterClient
         if (newMasterClient.ActorNumber == PhotonNetwork.LocalPlayer.ActorNumber)
         {
-            Debug.Log("[SCORE] Je suis le nouveau MasterClient - Synchronisation du timer de match");
-            // Continuer le timer existant, pas le réinitialiser
             if (!matchEnded)
             {
-                // Re-synchroniser le temps pour tous les clients
-                SyncMatchStartTime();
+                SyncMatchTime(ROOM_LIFETIME - (Time.time - matchStartTime));
             }
         }
     }
     
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
-        Debug.Log($"[SCORE] Joueur {newPlayer.NickName} (ActorNumber: {newPlayer.ActorNumber}) entré dans la room");
         if (!playerScores.ContainsKey(newPlayer.ActorNumber))
         {
             playerScores[newPlayer.ActorNumber] = 0;
@@ -566,19 +495,20 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         if (PhotonNetwork.IsMasterClient)
         {
             SyncScores();
+            
+            // Envoyer immédiatement le temps restant au joueur qui vient d'entrer
+            float timeLeft = ROOM_LIFETIME - (Time.time - matchStartTime);
+            SyncMatchTime(timeLeft);
         }
     }
     
-    // Ajouter des callbacks pour les événements de changement de room
     public override void OnLeftRoom()
     {
-        Debug.Log("[SCORE] Room quittée - Réinitialisation du ScoreManager");
         ResetManager();
     }
     
     public override void OnDisconnected(DisconnectCause cause)
     {
-        Debug.Log($"[SCORE] Déconnecté: {cause} - Réinitialisation du ScoreManager");
         ResetManager();
     }
     

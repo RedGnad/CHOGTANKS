@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class CannonPivotSync : MonoBehaviourPun, IPunObservable
 {
-    [SerializeField] private Transform cannonPivot; // Référence au pivot du canon
+    [SerializeField] private Transform cannonPivot; 
     private float networkedZ = 0f;
 
     void Update()

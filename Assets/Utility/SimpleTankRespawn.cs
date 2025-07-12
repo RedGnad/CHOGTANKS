@@ -14,7 +14,6 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     private bool isDead = false;
     private GameObject gameOverUI;
     
-    // Composants du tank à désactiver quand mort
     private List<Renderer> renderers;
     private List<Collider2D> colliders;
     private TankMovement2D movement;
@@ -39,13 +38,10 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         
         isDead = false;
         
-        Debug.Log($"[TANK] Start pour {photonView.Owner?.NickName}, {renderers.Count} renderers, {colliders.Count} colliders");
     }
     
-    // Méthode séparée pour l'initialisation des composants pour pouvoir la réutiliser
     private void InitializeComponents()
     {
-        // Trouver tous les renderers enfants
         renderers = GetComponentsInChildren<Renderer>(true).ToList();
         colliders = GetComponentsInChildren<Collider2D>(true).ToList();
         healthScript = GetComponent<TankHealth2D>();
@@ -63,40 +59,31 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     
     private void OnDestroy()
     {
-        // Se désinscrire des événements de matchmaking
         PhotonNetwork.RemoveCallbackTarget(this);
     }
     
-    // Réinitialisation complète    // Méthode appelée pour réinitialiser l'état du tank entre les parties
     public void ResetTankState()
     {
-        // Stopper toutes les coroutines en cours
         StopAllCoroutines();
         
-        // Réinitialiser les composants si nécessaire
         InitializeComponents();
         
-        // Réactiver le tank visuellement
         SetTankActive(true);
         
-        // Réinitialiser l'état de mort
         isDead = false;
         
-        // Détruire l'UI Game Over s'il existe
         if (gameOverUI != null)
         {
             Destroy(gameOverUI);
             gameOverUI = null;
         }
         
-        // Réinitialiser la santé si le script existe
         if (healthScript != null)
         {
             healthScript.ResetHealth();
         }
         else
         {
-            // Essayer de retrouver le script de santé
             healthScript = GetComponent<TankHealth2D>();
             if (healthScript != null)
             {
@@ -108,21 +95,16 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             }
         }
         
-        Debug.Log($"[TANK] État réinitialisé pour le tank {photonView.Owner?.NickName}");
         
-        // Vérifier que TankComponentAdder est présent et enregistré
         if (TankComponentAdder.Instance != null && PhotonNetwork.IsConnected)
         {
             Debug.Log($"[TANK] Vérification des composants via TankComponentAdder pour {photonView.Owner?.NickName}");
         }
     }
     
-    // Implémentation de IMatchmakingCallbacks
     public void OnJoinedRoom()
     {
-        Debug.Log($"[TANK] OnJoinedRoom pour {photonView.Owner?.NickName} - Réinitialisation de l'état");
         
-        // Un court délai pour s'assurer que tous les composants sont bien chargés
         StartCoroutine(DelayedReset());
     }
 
@@ -131,18 +113,14 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         yield return new WaitForSeconds(0.2f);
         ResetTankState();
         
-        // Forçage de l'état visuel après réinitialisation
         if (!isDead)
         {
             SetTankActive(true);
-            Debug.Log($"[TANK] Forçage de l'activation visuelle après reset pour {photonView.Owner?.NickName}");
         }
     }
 
     public void OnLeftRoom()
     {
-        Debug.Log($"[TANK] OnLeftRoom pour {photonView.Owner?.NickName}");
-        // Réinitialiser l'état au cas où le tank persiste après avoir quitté la room
         ResetTankState();
     }
     
@@ -157,21 +135,16 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     {
         if (isDead)
         {
-            Debug.Log($"[TANK] Ignoré Die RPC pour {photonView.Owner?.NickName}, déjà mort.");
             return;
         }
         isDead = true;
         
-        Debug.Log($"[TANK] Die RPC reçu pour {photonView.Owner?.NickName}, killer: {killerActorNumber}, sur {(photonView.IsMine ? "notre client" : "un autre client")}");
         
-        // Vérifier que les composants sont bien initialisés
         if (renderers == null || renderers.Count == 0 || colliders == null || colliders.Count == 0)
         {
-            Debug.LogWarning($"[TANK] Renderers ou colliders non initialisés dans Die() - Réinitialisation");
             InitializeComponents();
         }
         
-        // Désactiver visuellement le tank sur TOUS les clients (ne pas le détruire)
         SetTankActive(false);
         
         if (renderers.Count > 0)
@@ -183,13 +156,11 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             Debug.LogWarning($"[TANK] Pas de renderers à désactiver pour {photonView.Owner?.NickName}");
         }
         
-        // IMPORTANT: Attribution des scores par le MasterClient indépendamment du propriétaire du tank
         if (PhotonNetwork.IsMasterClient && killerActorNumber > 0 && killerActorNumber != photonView.Owner.ActorNumber)
         {
             var scoreManager = ScoreManager.Instance;
             if (scoreManager != null)
             {
-                Debug.Log($"[TANK] MasterClient attribue un kill à {killerActorNumber}");
                 scoreManager.AddKill(killerActorNumber);
             }
             else
@@ -198,11 +169,9 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             }
         }
 
-        // Afficher l'UI Game Over localement pour le propriétaire du tank
         if (photonView.IsMine)
         {
             ShowGameOverUI();
-            // Démarrer la routine de respawn
             StartCoroutine(RespawnCoroutine());
         }
     }
@@ -211,11 +180,9 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     {
         if (renderers == null || colliders == null)
         {
-            Debug.LogWarning($"[TANK] Renderers ou colliders null dans SetTankActive({active}) - Réinitialisation");
             InitializeComponents();
         }
         
-        // Sécurité supplémentaire contre les composants null
         var validRenderers = renderers?.Where(r => r != null).ToList() ?? new List<Renderer>();
         var validColliders = colliders?.Where(c => c != null).ToList() ?? new List<Collider2D>();
         
@@ -231,23 +198,18 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             catch (System.Exception ex) { Debug.LogError($"[TANK] Erreur lors de l'activation du collider: {ex.Message}"); }
         }
         
-        Debug.Log($"[TANK] SetTankActive({active}) pour {photonView.Owner?.NickName}: {validRenderers.Count} renderers, {validColliders.Count} colliders");
         
-        // Désactiver/activer les contrôles
         if (movement) movement.enabled = active;
         if (shooting) shooting.enabled = active;
         
-        // Désactiver/activer les scripts pertinents
         var health = GetComponent<TankHealth2D>();
         if (health) health.enabled = active;
     }
     
     private IEnumerator RespawnCoroutine()
     {
-        Debug.Log($"[TANK] Début du respawn pour {photonView.Owner.NickName} dans {respawnTime} secondes");
         yield return new WaitForSeconds(respawnTime);
         
-        // Déterminer la position de respawn
         Vector3 respawnPosition = transform.position;
         var spawner = FindObjectOfType<PhotonTankSpawner>();
         if (spawner != null && spawner.spawnPoints != null && spawner.spawnPoints.Length > 0)
@@ -256,59 +218,47 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             respawnPosition = spawner.spawnPoints[spawnIdx].position;
         }
         
-        // Appeler un RPC pour synchroniser le respawn sur tous les clients
         photonView.RPC("RespawnRPC", RpcTarget.All, respawnPosition.x, respawnPosition.y, respawnPosition.z);
         
-        // Détruire l'UI GameOver
         if (gameOverUI != null)
         {
             Destroy(gameOverUI);
             gameOverUI = null;
         }
         
-        Debug.Log($"[TANK] RPC de Respawn envoyé pour {photonView.Owner.NickName}");
     }
     
     [PunRPC]
     public void RespawnRPC(float x, float y, float z, PhotonMessageInfo info)
     {
-        // Réactiver le tank VISUELLEMENT sur TOUS les clients
-        Debug.Log($"[TANK] RespawnRPC reçu pour {photonView.Owner?.NickName} sur {(photonView.IsMine ? "notre client" : "un autre client")}!");
         
-        // Réactiver le tank
         SetTankActive(true);
         isDead = false;
         
-        // Repositionner à la position envoyée
         transform.position = new Vector3(x, y, z);
         
-        // Restaurer la santé
         var health = GetComponent<TankHealth2D>();
         if (health != null)
         {
             health.ResetHealth();
         }
         
-        Debug.Log($"[TANK] Respawn terminé pour {photonView.Owner?.NickName}, position: {transform.position}, renderers actifs: {(renderers.Count > 0 ? renderers[0].enabled : false)}");
     }
     
     private void ShowGameOverUI()
     {
         if (gameOverUIPrefab == null) return;
         
-        // Détruire l'ancien UI si existant
         if (gameOverUI != null)
         {
             Destroy(gameOverUI);
         }
         
-        // Créer la nouvelle UI
         Camera mainCam = Camera.main;
         if (mainCam == null) return;
         
         gameOverUI = Instantiate(gameOverUIPrefab, mainCam.transform);
         
-        // Configurer l'UI
         RectTransform rt = gameOverUI.GetComponent<RectTransform>();
         if (rt != null)
         {
@@ -320,7 +270,6 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             rt.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
         }
         
-        // Afficher GameOver
         var controller = gameOverUI.GetComponent<GameOverUIController>();
         if (controller != null)
         {

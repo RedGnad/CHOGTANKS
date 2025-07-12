@@ -193,6 +193,7 @@ GameObject:
   - component: {fileID: 8229438089800172548}
   - component: {fileID: 6382994478283606291}
   - component: {fileID: 5813192510985837755}
+  - component: {fileID: -1404778017265801083}
   m_Layer: 6
   m_Name: TankPlayer
   m_TagString: Player
@@ -362,6 +363,8 @@ MonoBehaviour:
   visualTransform: {fileID: 1793245118734141634}
   leftButton: {fileID: 0}
   rightButton: {fileID: 0}
+  useMobileOptimizations: 1
+  mobileRaycastFrequency: 0.2
 --- !u!114 &7947277721115695338
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -797,6 +800,19 @@ MonoBehaviour:
   localPlayerColor: {r: 0, g: 1, b: 0, a: 1}
   otherPlayerColor: {r: 1, g: 0, b: 0, a: 1}
   iconSize: 350
+--- !u!114 &-1404778017265801083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4827492414350439138}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7892061bc4b6f467388fc1788ba01142, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tankSpriteRenderer: {fileID: 7580652867974833724}
 --- !u!1 &5254450433851690380
 GameObject:
   m_ObjectHideFlags: 0

@@ -21,19 +21,15 @@ namespace Sample
 
         private async void OnConnectClicked()
         {
-            Debug.Log("[Connect] Début de la connexion...");
             
             try
             {
-                // PROTECTION EDITOR : Vérifications simples sans test modal
 #if UNITY_EDITOR
                 if (!Application.isPlaying)
                 {
-                    Debug.LogWarning("[Connect] Not in play mode!");
                     return;
                 }
                 
-                // Simple vérification d'état sans ouvrir le modal
                 if (AppKit.IsInitialized)
                 {
                     Debug.Log("[Connect] AppKit already initialized");
@@ -48,7 +44,6 @@ namespace Sample
                     Debug.Log("[Connect] AppKit initialisé avec succès");
                 }
 
-                // Vérification sécurisée de l'Account
                 string initialAddress = "";
                 try
                 {
@@ -59,17 +54,13 @@ namespace Sample
                 }
                 catch (System.Exception accountEx)
                 {
-                    Debug.LogWarning($"[Connect] Impossible de récupérer l'adresse actuelle : {accountEx.Message}");
                     initialAddress = "";
                 }
                 
-                Debug.Log($"[Connect] Adresse actuelle : {(string.IsNullOrEmpty(initialAddress) ? "Aucune" : initialAddress)}");
-
+                
                 try
                 {
-                    Debug.Log("[Connect] Ouverture du modal...");
                     AppKit.OpenModal();
-                    Debug.Log("[Connect] Modal ouvert");
                     StartCoroutine(WaitForModalCloseAndSign(initialAddress));
                 }
                 catch (System.Exception e)
@@ -85,7 +76,6 @@ namespace Sample
 
         private IEnumerator WaitForModalCloseAndSign(string initialAddress)
         {
-            Debug.Log("[Connect] En attente de l'ouverture du modal...");
             
             float timeout = Time.time + 10f;
             while (!AppKit.IsModalOpen && Time.time < timeout)
@@ -95,12 +85,9 @@ namespace Sample
             
             if (!AppKit.IsModalOpen)
             {
-                Debug.LogError("[Connect] Le modal ne s'est pas ouvert dans le délai imparti");
                 yield break;
             }
             
-            Debug.Log("[Connect] Modal détecté comme ouvert");
-            Debug.Log("[Connect] En attente de la fermeture du modal...");
             timeout = Time.time + 300f;
             while (AppKit.IsModalOpen && Time.time < timeout)
             {
@@ -109,14 +96,11 @@ namespace Sample
 
             if (AppKit.IsModalOpen)
             {
-                Debug.LogError("[Connect] Le modal n'a pas été fermé dans le délai imparti");
                 yield break;
             }
             
-            Debug.Log("[Connect] Modal fermé, vérification de l'état...");
             yield return new WaitForSeconds(1f);
 
-            // Vérification sécurisée de l'Account final
             string finalAddress = "";
             try
             {
@@ -127,32 +111,24 @@ namespace Sample
             }
             catch (System.Exception accountEx)
             {
-                Debug.LogWarning($"[Connect] Impossible de récupérer l'adresse finale : {accountEx.Message}");
                 finalAddress = "";
             }
             
-            Debug.Log($"[Connect] Adresse après fermeture : {(string.IsNullOrEmpty(finalAddress) ? "Aucune" : finalAddress)}");
-
+            
             if (string.IsNullOrEmpty(finalAddress))
             {
-                Debug.LogWarning("[Connect] Aucun portefeuille connecté après fermeture du modal");
                 yield break;
             }
 
-            Debug.Log($"[Connect] Adresse finale : {finalAddress}");
-
+            
             if (finalAddress != initialAddress)
             {
-                Debug.Log($"[Connect] Nouvelle connexion détectée : {finalAddress}");
-
+                
                 try
                 {
-                    // Sauvegarder dans PlayerPrefs pour compatibilité
                     PlayerPrefs.SetString("walletAddress", finalAddress);
                     PlayerPrefs.Save();
-                    Debug.Log("[Connect] Adresse sauvegardée dans PlayerPrefs");
-
-                    // Vérification si PlayerSession existe
+                    
                     try
                     {
                         PlayerSession.SetWalletAddress(finalAddress);
@@ -166,9 +142,7 @@ namespace Sample
                     var dapp = FindObjectOfType<Dapp>();
                     if (dapp != null)
                     {
-                        Debug.Log("[Connect] Déclenchement de la signature...");
                         dapp.OnPersonalSignButton();
-                        Debug.Log("[Connect] Signature demandée avec succès");
                     }
                     else
                     {

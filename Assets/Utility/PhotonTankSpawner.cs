@@ -1,20 +1,22 @@
 using Photon.Pun;
 using UnityEngine;
+using System;
 
 public class PhotonTankSpawner : MonoBehaviourPunCallbacks
 {
+    // Événement déclenché lorsqu'un tank est spawné (GameObject du tank, PhotonView)
+    public static event Action<GameObject, PhotonView> OnTankSpawned;
+    
     [Header("Spawns multiples")]
-    public Transform[] spawnPoints; // À assigner dans l'inspecteur Unity (drag & drop)
+    public Transform[] spawnPoints; 
 
-    public string tankPrefabName = "TankPrefab"; // Mets ici le nom EXACT de ton prefab (sans .prefab)
-    public Vector2 fallbackSpawnPosition = new Vector2(0, 0); // Utilisé si pas de spawnPoints
+    public string tankPrefabName = "TankPrefab"; 
+    public Vector2 fallbackSpawnPosition = new Vector2(0, 0); 
 
     private void Start()
     {
-        // Si déjà dans une room, spawn le tank (utile après reload)
         if (PhotonNetwork.InRoom)
         {
-            Debug.Log("[PhotonTankSpawner] Start: InRoom detected, spawning tank...");
             SpawnTank();
         }
     }
@@ -24,7 +26,6 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         Vector2 spawnPos = fallbackSpawnPosition;
         if (spawnPoints != null && spawnPoints.Length > 0)
         {
-            // Utilise l'index unique du joueur dans la room pour choisir le spawn
             int playerIndex = PhotonNetwork.LocalPlayer.ActorNumber - 1;
             int spawnIdx = playerIndex % spawnPoints.Length;
             spawnPos = spawnPoints[spawnIdx].position;
@@ -32,9 +33,7 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
 
         GameObject tank = PhotonNetwork.Instantiate(tankPrefabName, spawnPos, Quaternion.identity);
         var view = tank.GetComponent<PhotonView>();
-        Debug.Log("[SPAWN DEBUG] Owner du tank instancié : " + (view.Owner != null ? view.Owner.NickName : "null") + " (IsMine=" + view.IsMine + ") sur client " + PhotonNetwork.LocalPlayer.NickName);
-
-        // AJOUT : S'assurer que le nom est affiché correctement
+        
         var nameDisplay = tank.GetComponent<PlayerNameDisplay>();
         if (nameDisplay != null)
         {
@@ -45,11 +44,13 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
             Debug.LogWarning("[SPAWN DEBUG] PlayerNameDisplay non trouvé sur le prefab TankPrefab");
         }
 
-        // Affiche le code de la room pour tous les joueurs
         var lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null && PhotonNetwork.CurrentRoom != null)
         {
             lobbyUI.createdCodeText.text = "Room code : " + PhotonNetwork.CurrentRoom.Name;
         }
+        
+        // Déclencher l'événement OnTankSpawned
+        OnTankSpawned?.Invoke(tank, view);
     }
 }

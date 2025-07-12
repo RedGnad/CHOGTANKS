@@ -1,4 +1,66 @@
 mergeInto(LibraryManager.library, {
+  // Fonction d'initialisation pour gérer les erreurs WebAssembly
+  InitializeWasmErrorHandler: function () {
+    // Gestion des erreurs WebAssembly courantes
+    window.addEventListener("error", function (e) {
+      if (
+        e &&
+        e.message &&
+        (e.message.indexOf("wasm") !== -1 ||
+          e.message.indexOf("memory") !== -1 ||
+          e.message.indexOf("out of memory") !== -1)
+      ) {
+        console.error("[WebGL/WASM] Erreur détectée: " + e.message);
+
+        // Afficher un message utilisateur adapté
+        if (!window.wasmErrorShown) {
+          window.wasmErrorShown = true;
+
+          var container = document.createElement("div");
+          container.style.position = "absolute";
+          container.style.width = "80%";
+          container.style.top = "20%";
+          container.style.left = "10%";
+          container.style.backgroundColor = "rgba(0,0,0,0.8)";
+          container.style.color = "white";
+          container.style.padding = "20px";
+          container.style.borderRadius = "10px";
+          container.style.zIndex = "999";
+          container.style.textAlign = "center";
+          container.style.fontFamily = "Arial, sans-serif";
+
+          container.innerHTML =
+            "<h3>Problème de compatibilité détecté</h3>" +
+            "<p>Votre appareil ne dispose peut-être pas de suffisamment de mémoire pour exécuter ce jeu.</p>" +
+            "<p>Essayez de fermer d'autres applications et de rafraîchir la page.</p>" +
+            '<button id="retryButton" style="padding: 10px; background-color: #4CAF50; border: none; color: white; border-radius: 5px; margin-top: 10px;">Réessayer</button>';
+
+          document.body.appendChild(container);
+
+          document
+            .getElementById("retryButton")
+            .addEventListener("click", function () {
+              location.reload();
+            });
+        }
+
+        return true; // Empêcher la propagation de l'erreur
+      }
+    });
+
+    // Optimisation pour les appareils mobiles à faible capacité
+    if (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      )
+    ) {
+      // Réduire la qualité des textures
+      if (unityInstance && unityInstance.Module) {
+        console.log("[WebGL] Optimisation pour mobile activée");
+      }
+    }
+  },
+
   // Initialisation de Firebase
   InitializeFirebaseJS: function () {
     try {

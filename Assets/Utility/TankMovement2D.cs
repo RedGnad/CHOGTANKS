@@ -19,10 +19,13 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
     [Header("Visuel (optionnel)")]
     [SerializeField] private Transform visualTransform;
 
-    // Ajout pour mobile
     [Header("Contrôles mobiles (optionnel)")]
     public MobileInputButton leftButton;
     public MobileInputButton rightButton;
+
+    [Header("Optimisation")]
+    [SerializeField] private bool useMobileOptimizations = true;
+    [SerializeField] private float mobileRaycastFrequency = 0.2f; // Seconds between slope alignment checks
 
     private Rigidbody2D rb;
     private float horizontalInput;
@@ -30,14 +33,14 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
     private Vector2 groundNormal = Vector2.up;
     private int groundContactCount = 0;
     private int explosionLockFrames = 0;
+    
+    private float lastAlignmentTime = 0f;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         if (visualTransform == null)
-            Debug.LogWarning("[TankMovement2D] visualTransform non assigné (optionnel).");
-
-        // Auto-assignation des boutons UI si pas déjà fait
+            
         if (leftButton == null)
             leftButton = GameObject.Find("LeftButton")?.GetComponent<MobileInputButton>();
         if (rightButton == null)
@@ -63,18 +66,18 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
     {
         if (!photonView.IsMine) return;
 
-        // Lecture input horizontal
         horizontalInput = Input.GetAxisRaw("Horizontal");
 
-        // Ajout mobile : priorité aux boutons si appuyés
         if (leftButton != null && leftButton.IsPressed)
             horizontalInput = -1f;
         else if (rightButton != null && rightButton.IsPressed)
             horizontalInput = 1f;
 
+        if (Mathf.Approximately(prevHorizontalInput, horizontalInput))
+            return;
+            
         prevHorizontalInput = horizontalInput;
 
-        // Saut
         if (Input.GetButtonDown("Jump") && groundContactCount > 0)
         {
             Jump();
@@ -92,33 +95,38 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
             return;
         }
 
-        Vector2 wallDir = horizontalInput >= 0 ? Vector2.right : Vector2.left;
-        isWallSliding = Physics2D.Raycast(
-            wallCheck.position,
-            wallDir,
-            wallCheckDistance,
-            groundLayer
-        ) && groundContactCount == 0 && Mathf.Abs(horizontalInput) > 0f;
-
-        float yVel = rb.linearVelocity.y;
-        if (isWallSliding)
+        bool wallCheckNeeded = groundContactCount == 0 && Mathf.Abs(horizontalInput) > 0f;
+        if (wallCheckNeeded)
         {
-            yVel = Mathf.Clamp(rb.linearVelocity.y, -wallSlideSpeed, float.MaxValue);
-        }
-
-        float xVel = horizontalInput * moveSpeed;
-
-        if (groundContactCount > 0 && Mathf.Abs(rb.linearVelocity.y) < 0.01f)
-        {
-            Vector2 target = new Vector2(horizontalInput * moveSpeed, yVel);
-            rb.linearVelocity = target;
+            Vector2 wallDir = horizontalInput >= 0 ? Vector2.right : Vector2.left;
+            isWallSliding = Physics2D.Raycast(
+                wallCheck.position,
+                wallDir,
+                wallCheckDistance,
+                groundLayer
+            );
         }
         else
         {
-            float currentVelX = rb.linearVelocity.x;
+            isWallSliding = false;
+        }
+
+        float yVel = rb.velocity.y;
+        if (isWallSliding)
+        {
+            yVel = Mathf.Clamp(rb.velocity.y, -wallSlideSpeed, float.MaxValue);
+        }
+
+        if (groundContactCount > 0 && Mathf.Abs(rb.velocity.y) < 0.01f)
+        {
+            rb.velocity = new Vector2(horizontalInput * moveSpeed, yVel);
+        }
+        else
+        {
+            float currentVelX = rb.velocity.x;
             if (Mathf.Approximately(currentVelX, 0f))
             {
-                rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, yVel);
+                rb.velocity = new Vector2(horizontalInput * moveSpeed, yVel);
             }
             else
             {
@@ -127,23 +135,27 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
                     rb.AddForce(new Vector2(horizontalInput * (moveSpeed * 0.02f), 0f),
                                 ForceMode2D.Impulse);
                 }
-                rb.linearVelocity = new Vector2(currentVelX, yVel);
+                rb.velocity = new Vector2(currentVelX, yVel);
             }
         }
 
-        if (visualTransform != null)
+        if (visualTransform != null && 
+            (!useMobileOptimizations || Time.time - lastAlignmentTime >= mobileRaycastFrequency))
+        {
             AlignToSlope();
+            lastAlignmentTime = Time.time;
+        }
     }
 
     private void Jump()
     {
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+        rb.velocity = new Vector2(rb.velocity.x, jumpForce);
     }
 
     private void WallJump()
     {
         int dir = (wallCheck.position.x > transform.position.x) ? 1 : -1;
-        rb.linearVelocity = new Vector2(-dir * wallJumpForceX, wallJumpForceY);
+        rb.velocity = new Vector2(-dir * wallJumpForceX, wallJumpForceY);
     }
 
     private void AlignToSlope()

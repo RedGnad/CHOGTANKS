@@ -44,14 +44,15 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
     {
         rb = GetComponent<Rigidbody2D>();
         if (cannonPivot == null)
-            Debug.LogError("[TankShoot2D] cannonPivot non assigné !");
+        {
+            cannonPivot = transform.Find("CannonPivot");
+        }
     }
 
     private void Start()
     {
         if (!photonView.IsMine)
         {
-            Debug.Log("[TankShoot2D] Script désactivé (pas mon tank) sur " + PhotonNetwork.LocalPlayer.NickName);
             enabled = false;
             return;
         }
@@ -67,11 +68,9 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
 
         Vector3 mouseScreen = Input.mousePosition;
         
-        // ✅ MODIFIÉ : Conversion plus fiable pour WebGL
         Vector3 mouseWorld3D;
         if (Camera.main.orthographic)
         {
-            // Pour caméra orthographique (plus fiable pour WebGL)
             mouseWorld3D = Camera.main.ScreenToWorldPoint(new Vector3(
                 mouseScreen.x, 
                 mouseScreen.y, 
@@ -80,7 +79,6 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
         }
         else
         {
-            // Fallback pour caméra perspective
             float camZ = -Camera.main.transform.position.z;
             mouseWorld3D = Camera.main.ScreenToWorldPoint(
                 new Vector3(mouseScreen.x, mouseScreen.y, camZ)
@@ -94,12 +92,10 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
         float angle = Mathf.Atan2(shootDir.y, shootDir.x) * Mathf.Rad2Deg;
         cannonPivot.rotation = Quaternion.Euler(0f, 0f, angle);
 
-        // Gestion du tir chargé
         bool firePressed = Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space);
         bool fireHeld = Input.GetMouseButton(0) || Input.GetKey(KeyCode.Space);
         bool fireReleased = Input.GetMouseButtonUp(0) || Input.GetKeyUp(KeyCode.Space);
 
-        // Début du chargement
         if (firePressed && !isCharging)
         {
             isCharging = true;
@@ -107,7 +103,6 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
             chargeSFXPlayed = false;
         }
 
-        // SFX de charge prête
         if (isCharging && !chargeSFXPlayed)
         {
             float heldTime = Time.time - chargeStartTime;
@@ -119,7 +114,6 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
             }
         }
 
-        // Fin du chargement (relâchement)
         if (isCharging && fireReleased)
         {
             float heldTime = Time.time - chargeStartTime;
@@ -135,7 +129,6 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
         if (Time.time - lastFireTime < fireCooldown) return;
         lastFireTime = Time.time;
 
-        // SFX
         if (isPrecision)
         {
             if (firePrecisionSFX != null) firePrecisionSFX.Play();
@@ -145,25 +138,20 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
             if (fireNormalSFX != null) fireNormalSFX.Play();
         }
 
-        // --- Recul adapté pour le tir chargé ---
         float recoilMultiplier = isPrecision ? precisionRecoilMultiplier : 1f;
 
-        // Gestion du recul (identique à avant)
         bool wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(
             groundCheck.position,
             groundCheckRadius,
             groundLayer
         );
-        if (isGrounded != wasGrounded)
-            Debug.Log($"[TankShoot2D] isGrounded = {isGrounded}");
 
         if (!isGrounded)
         {
             Vector2 impulseAir = -shootDir * (inAirForce * inAirMultiplier * recoilMultiplier);
             if (!loggedThisShot)
             {
-                Debug.Log($"[TankShoot2D] Jump en vol : impulse = {impulseAir}");
                 loggedThisShot = true;
             }
             rb.AddForce(impulseAir, ForceMode2D.Impulse);
@@ -182,18 +170,15 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
                 Vector2 impulseSurface = -shootDir * rocketJumpForce * recoilMultiplier;
                 if (!loggedThisShot)
                 {
-                    Debug.Log($"[TankShoot2D] Self-explosion (rocket-jump) : impulse = {impulseSurface}");
                     loggedThisShot = true;
                 }
                 var movement = GetComponent<TankMovement2D>();
                 movement?.NotifySelfExplosion();
                 Vector2 propulsion = -shootDir * rocketJumpForce * recoilMultiplier;
-                Debug.Log($"[ROCKET JUMP] AddForce: direction={-shootDir}, force={rocketJumpForce * recoilMultiplier}, vector={propulsion}");
                 rb.AddForce(propulsion, ForceMode2D.Impulse);
             }
         }
 
-        // Calcul de la vitesse du shell selon le type de tir
         float shellSpeedFinal = isPrecision ? shellSpeed * precisionShellSpeedMultiplier : shellSpeed;
 
         Vector3 spawnPos = firePoint.position + (Vector3)(shootDir * 0.2f);
@@ -202,13 +187,11 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
         Rigidbody2D shellRb = shell.GetComponent<Rigidbody2D>();
         shellRb.linearVelocity = shootDir * shellSpeedFinal;
 
-        // --- Synchronisation du sprite du shell ---
         var shellHandler = shell.GetComponent<ShellCollisionHandler>();
         if (shellHandler != null)
         {
             shellHandler.photonView.RPC("SetPrecision", RpcTarget.AllBuffered, isPrecision);
         }
 
-        Debug.Log($"[DEBUG SHOOT] PhotonNetwork.Instantiate shell {(isPrecision ? "CHARGÉ" : "normal")} sur {PhotonNetwork.LocalPlayer.NickName} (Actor {PhotonNetwork.LocalPlayer.ActorNumber})");
     }
 }

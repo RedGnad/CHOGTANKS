@@ -47,7 +47,6 @@ public class NFTVerification : MonoBehaviour
     [Tooltip("Message à afficher quand aucun NFT n'est détecté")]
     public string noNFTOwnedMessage = "";
 
-    // Sélecteurs ABI
     const string SEL_ERC1155_BALANCE = "0x00fdd58e";  
     const string SEL_ERC721_BALANCE  = "0x70a08231";  
     const string SEL_ERC721_OWNER    = "0x6352211e";
@@ -57,13 +56,11 @@ public class NFTVerification : MonoBehaviour
 
     private void Start()
     {
-        // Désactiver le texte par défaut
         if (statusText != null)
         {
             statusText.gameObject.SetActive(false);
         }
         
-        // Vérifier si un wallet est déjà connecté via PlayerPrefs
         currentWallet = PlayerPrefs.GetString("walletAddress", "");
         Debug.Log($"[NFT] Adresse lue depuis PlayerPrefs: {currentWallet}");
         
@@ -75,13 +72,11 @@ public class NFTVerification : MonoBehaviour
         else
         {
             Debug.LogWarning("[NFT] Aucun wallet connecté trouvé dans PlayerPrefs");
-            // Vérifier si la clé existe réellement
             bool hasKey = PlayerPrefs.HasKey("walletAddress");
             Debug.Log($"[NFT] La clé walletAddress existe: {hasKey}");
         }
     }
 
-    // Appelez cette méthode depuis votre gestionnaire de connexion de portefeuille
     public void OnWalletConnected(string walletAddress)
     {
         currentWallet = walletAddress;
@@ -107,8 +102,7 @@ public class NFTVerification : MonoBehaviour
         if (string.IsNullOrEmpty(currentWallet))
         {
             string error = "No Connected Wallet";
-            Debug.LogError($"[NFT] {error}");
-            UpdateStatus(error, true); // Le message disparaîtra après 3 secondes via UpdateStatus
+            UpdateStatus(error, true); 
             yield break;
         }
 
@@ -167,19 +161,15 @@ public class NFTVerification : MonoBehaviour
 
             if (ownsNFT)
             {
-                // On attend la fin du traitement avant d'afficher le message de succès
                 yield return null;
                 
-                // Afficher le message de succès
                 if (statusText != null)
                 {
                     string finalMessage = string.IsNullOrEmpty(customSuccessMessage) ? condition.successMessage : customSuccessMessage;
                     statusText.text = finalMessage;
                     statusText.gameObject.SetActive(true);
-                    Debug.Log($"[NFT] Affichage du message de succès: {finalMessage}");
                 }
                 
-                // Arrêter la vérification après le premier succès
                 yield break;
             }
         }
@@ -197,7 +187,6 @@ public class NFTVerification : MonoBehaviour
         }
     }
 
-    // Les méthodes d'aide restent les mêmes que dans votre script d'origine
     IEnumerator CheckBalance1155(string contract, string wallet, string tokenId, Action<bool> cb)
     {
         string ownerHex = wallet.StartsWith("0x") ? wallet.Substring(2).PadLeft(64, '0') : wallet.PadLeft(64, '0');
@@ -248,7 +237,7 @@ public class NFTVerification : MonoBehaviour
         }));
 
         string topicTo = "0x" + wallet.Substring(2).PadLeft(64, '0');
-        BigInteger chunk = 100, start = BigInteger.Max(0, latest - 1000); // Vérifie les 1000 derniers blocs
+        BigInteger chunk = 100, start = BigInteger.Max(0, latest - 1000); 
         bool found = false;
         
         while (start <= latest && !found)
@@ -293,7 +282,6 @@ public class NFTVerification : MonoBehaviour
         yield return CallRpcRaw(payload, json => {
             if (string.IsNullOrEmpty(json))
             {
-                Debug.LogError("[NFTVerification] Empty RPC response");
                 cb(false);
                 return;
             }
@@ -306,8 +294,7 @@ public class NFTVerification : MonoBehaviour
             catch (Exception ex)
             {
                 string errorMsg = "No NFT found";
-                Debug.LogError($"[NFT] {errorMsg}");
-                UpdateStatus(errorMsg, true); // Disparaît après 3 secondes
+                UpdateStatus(errorMsg, true); 
             }
         });
     }
@@ -327,7 +314,6 @@ public class NFTVerification : MonoBehaviour
         
         if (uwr.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
         {
-            Debug.LogError($"[NFTVerification] RPC error: {uwr.error}");
             onResult(null);
         }
         else
@@ -338,17 +324,13 @@ public class NFTVerification : MonoBehaviour
 
     private void UpdateStatus(string message, bool hideAfterDelay = false)
     {
-        Debug.Log($"[NFTVerification] {message}");
         if (statusText != null)
         {
-            // Annuler tout masquage programmé
             CancelInvoke(nameof(HideStatus));
             
-            // Mettre à jour le texte
             statusText.text = message;
             statusText.gameObject.SetActive(true);
             
-            // Planifier le masquage si nécessaire
             if (hideAfterDelay)
             {
                 Invoke(nameof(HideStatus), 3f);
@@ -373,7 +355,6 @@ public class NFTVerification : MonoBehaviour
         }
     }
 
-    // Méthode pour se déconnecter
     public void DisconnectWallet()
     {
         currentWallet = "";
@@ -384,32 +365,23 @@ public class NFTVerification : MonoBehaviour
     
     public void ForceNFTCheck()
     {
-        Debug.Log("[NFT] ForceNFTCheck appelé");
         
-        // Vérifier d'abord si on a une adresse en mémoire
         if (!string.IsNullOrEmpty(currentWallet))
         {
-            Debug.Log($"[NFT] Utilisation de l'adresse en mémoire: {currentWallet}");
             StartCoroutine(CheckAllNFTs());
             return;
         }
         
-        // Sinon, essayer de récupérer depuis PlayerPrefs
         string savedAddress = PlayerPrefs.GetString("walletAddress", "");
-        Debug.Log($"[NFT] Adresse lue depuis PlayerPrefs: {savedAddress}");
         
         if (!string.IsNullOrEmpty(savedAddress))
         {
             currentWallet = savedAddress;
-            Debug.Log($"[NFT] Démarrage de la vérification pour: {currentWallet}");
             StartCoroutine(CheckAllNFTs());
         }
         else
         {
-            Debug.LogError("[NFT] Impossible de forcer la vérification: aucune adresse trouvée");
-            // Vérifier si la clé existe réellement
             bool hasKey = PlayerPrefs.HasKey("walletAddress");
-            Debug.Log($"[NFT] La clé walletAddress existe: {hasKey}");
             
             if (statusText != null)
             {

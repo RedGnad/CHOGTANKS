@@ -12,8 +12,8 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     public float heightOffset = 1.5f;
     
     [Header("Color Settings")]
-    public Color localPlayerColor = Color.green;  // Couleur pour le joueur local
-    public Color otherPlayerColor = Color.white;  // Couleur pour les autres joueurs
+    public Color localPlayerColor = Color.green; 
+    public Color otherPlayerColor = Color.white; 
     
     private void Start()
     {
@@ -26,13 +26,12 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
             nameCanvas.sortingOrder = 10;
             
             RectTransform canvasRect = nameCanvas.GetComponent<RectTransform>();
-            canvasRect.localScale = Vector3.one * 0.02f; // PLUS GROS
+            canvasRect.localScale = Vector3.one * 0.02f; 
             canvasRect.sizeDelta = new Vector2(200, 50);
             
             nameCanvas.transform.localPosition = Vector3.zero;
         }
         
-        // AJOUT : Centrer le texte
         if (nameText != null)
         {
             nameText.alignment = TextAlignmentOptions.Center;
@@ -52,7 +51,6 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
             }
             nameText.text = playerName;
             
-            // Utiliser les couleurs configurables
             if (photonView.IsMine)
             {
                 nameText.color = localPlayerColor;
@@ -68,7 +66,7 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     {
         if (nameText != null)
         {
-            nameText.transform.localPosition = new Vector3(0, heightOffset * 150, 0); // PLUS HAUT
+            nameText.transform.localPosition = new Vector3(0, heightOffset * 150, 0); 
         }
     }
 
@@ -83,7 +81,6 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
         }
     }
 
-    // Méthodes publiques pour changer les couleurs depuis un autre script
     public void SetLocalPlayerColor(Color color)
     {
         localPlayerColor = color;
