@@ -1110,7 +1110,7 @@ function createWasm() {
     // This assertion doesn't hold when emscripten is run in --post-link
     // mode.
     // TODO(sbc): Read INITIAL_MEMORY out of the wasm file in post-link mode.
-    //assert(wasmMemory.buffer.byteLength === 268435456);
+    //assert(wasmMemory.buffer.byteLength === 100663296);
     updateMemoryViews();
 
     wasmTable = Module['asm']['__indirect_function_table'];
