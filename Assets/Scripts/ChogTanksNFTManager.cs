@@ -89,7 +89,7 @@ public class ChogTanksNFTManager : MonoBehaviour
         }
     }
 
-    void RefreshWalletAddress()
+    public void RefreshWalletAddress()
     {
         string walletAddress = string.Empty;
         
@@ -147,17 +147,31 @@ public class ChogTanksNFTManager : MonoBehaviour
         }
     }
 
-    private void LoadNFTStateFromFirebase()
+    // Vérification centralisée pour bloquer Firebase si le personal sign n'est pas fait
+    private bool IsFirebaseAllowed()
     {
+        bool walletConnected = !string.IsNullOrEmpty(currentPlayerWallet);
+        bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
+        return walletConnected && signApproved;
+    }
+
+    public void LoadNFTStateFromFirebase()
+    {
+        if (!IsFirebaseAllowed())
+        {
+            Debug.LogWarning("[NFT] Accès Firebase refusé : signature manquante");
+            UpdateStatusUI("Connect and sign to access");
+            return;
+        }
+        Debug.Log($"[NFT-DEBUG] LoadNFTStateFromFirebase called. Wallet: {currentPlayerWallet}, FirebaseAllowed: true");
         if (string.IsNullOrEmpty(currentPlayerWallet))
         {
             Debug.LogError("[NFT] No wallet address to load NFT state");
             return;
         }
-
         UpdateStatusUI("Loading NFT state...");
-        
 #if UNITY_WEBGL && !UNITY_EDITOR
+        Debug.Log($"[NFT-DEBUG] GetNFTStateJS called with wallet: {currentPlayerWallet}");
         GetNFTStateJS(currentPlayerWallet);
 #else
         var mockNFTState = new NFTStateData
@@ -167,6 +181,7 @@ public class ChogTanksNFTManager : MonoBehaviour
             walletAddress = currentPlayerWallet,
             score = 150
         };
+        Debug.Log($"[NFT-DEBUG] Mock NFT state: {JsonUtility.ToJson(mockNFTState)}");
         OnNFTStateLoaded(JsonUtility.ToJson(mockNFTState));
 #endif
     }
@@ -177,7 +192,7 @@ public class ChogTanksNFTManager : MonoBehaviour
         try
         {
             currentNFTState = JsonUtility.FromJson<NFTStateData>(nftStateJson);
-            Debug.Log($"[NFT-DEBUG] NFT loaded: hasNFT={currentNFTState.hasNFT}, level={currentNFTState.level}");
+            Debug.Log($"[NFT-DEBUG] NFT loaded: hasNFT={currentNFTState.hasNFT}, level={currentNFTState.level}, score={currentNFTState.score}, wallet={currentNFTState.walletAddress}");
             if (currentNFTState.hasNFT && currentNFTState.level > 0)
             {
                 UpdateStatusUI($"You have a Level {currentNFTState.level} NFT");
@@ -301,14 +316,14 @@ public class ChogTanksNFTManager : MonoBehaviour
 
     public void OnEvolutionCheckComplete(string evolutionDataJson)
     {
+        Debug.Log($"[NFT-DEBUG] OnEvolutionCheckComplete json={evolutionDataJson}");
         try
         {
             var evolutionData = JsonUtility.FromJson<EvolutionData>(evolutionDataJson);
-            
+            Debug.Log($"[NFT-DEBUG] EvolutionData: authorized={evolutionData.authorized}, score={evolutionData.score}, currentLevel={evolutionData.currentLevel}, requiredScore={evolutionData.requiredScore}, error={evolutionData.error}");
             if (evolutionData.authorized)
             {
                 int targetLevel = CalculateTargetLevel(evolutionData.score, evolutionData.currentLevel);
-                
                 if (targetLevel > currentNFTState.level)
                 {
                     UpdateStatusUI($"Evolution authorized to Level {targetLevel}! Score: {evolutionData.score}");
@@ -325,7 +340,6 @@ public class ChogTanksNFTManager : MonoBehaviour
                 string errorMsg = !string.IsNullOrEmpty(evolutionData.error) ? 
                     evolutionData.error : 
                     $"Insufficient Score: {evolutionData.score}";
-                    
                 UpdateStatusUI($"Git Gud. {errorMsg}"); 
                 isProcessingEvolution = false;
             }
@@ -553,6 +567,12 @@ public class ChogTanksNFTManager : MonoBehaviour
 
     private void UpdateNFTLevelInFirebase(int newLevel)
     {
+        if (!IsFirebaseAllowed())
+        {
+            Debug.LogWarning("[NFT] Écriture Firebase refusée : signature manquante");
+            UpdateStatusUI("Connectez votre wallet et signez pour mettre à jour votre NFT.");
+            return;
+        }
         if (string.IsNullOrEmpty(currentPlayerWallet))
         {
             Debug.LogError("[NFT] Cannot update NFT level: currentPlayerWallet is empty!");
@@ -562,8 +582,26 @@ public class ChogTanksNFTManager : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
         UpdateNFTLevelJS(currentPlayerWallet, newLevel);
 #else
-        // Simulation en mode éditeur
-        OnNFTLevelUpdated($"{newLevel}"); // Simulate successful update
+        OnNFTLevelUpdated($"{newLevel}");
+#endif
+    }
+
+    private void UpdateNFTDataInFirebase(string data)
+    {
+        if (!IsFirebaseAllowed())
+        {
+            Debug.LogWarning("[NFT] Écriture Firebase refusée : signature manquante");
+            UpdateStatusUI("Connectez votre wallet et signez pour mettre à jour votre NFT.");
+            return;
+        }
+        if (string.IsNullOrEmpty(currentPlayerWallet))
+        {
+            return;
+        }
+        
+        
+#if UNITY_WEBGL && !UNITY_EDITOR
+#else
 #endif
     }
 
@@ -736,19 +774,6 @@ public class ChogTanksNFTManager : MonoBehaviour
         }
     }
 
-    private void UpdateNFTDataInFirebase(string data)
-    {
-        if (string.IsNullOrEmpty(currentPlayerWallet))
-        {
-            return;
-        }
-        
-        
-#if UNITY_WEBGL && !UNITY_EDITOR
-#else
-#endif
-    }
-
     public void OnNFTLevelUpdateError(string error)
     {
         Debug.LogError($"[NFT] Error updating NFT level in Firebase: {error}");
@@ -766,6 +791,13 @@ public class ChogTanksNFTManager : MonoBehaviour
         {
             statusText.text = message;
         }
+    }
+
+    // Méthode à appeler après le personal sign pour forcer l'affichage du levelText
+    public void ForceLevelTextDisplay()
+    {
+        Debug.Log("[NFT-DEBUG] ForceLevelTextDisplay called after personal sign");
+        UpdateLevelUI(currentNFTState.level);
     }
 
     // Fonctions de test disponibles dans l'inspecteur

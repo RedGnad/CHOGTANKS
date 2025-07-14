@@ -416,9 +416,15 @@ public class NFTVerification : MonoBehaviour
         PlayerPrefs.DeleteKey("walletAddress");
         PlayerPrefs.Save();
         UpdateStatus("Déconnecté");
-        
         // Verrouiller tous les boutons
         LockAllButtons();
+        // Masquer le levelText
+        var nftManager = FindObjectOfType<ChogTanksNFTManager>();
+        if (nftManager != null && nftManager.levelText != null)
+        {
+            nftManager.levelText.text = "";
+            nftManager.levelText.gameObject.SetActive(false);
+        }
     }
     
     public void ForceNFTCheck()

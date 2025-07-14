@@ -26,6 +26,14 @@ namespace Sample
         private void OnPersonalSignApproved()
         {
             Debug.Log("[Connect] Signature personnelle approuvée !");
+            var nftManager = FindObjectOfType<ChogTanksNFTManager>();
+            if (nftManager != null)
+            {
+                nftManager.RefreshWalletAddress(); // <-- Ajout pour garantir que le wallet est à jour
+                nftManager.LoadNFTStateFromFirebase(); // Synchronise l'état NFT
+                nftManager.ForceLevelTextDisplay();    // Affiche le texte du niveau
+                Debug.Log("[Connect] RefreshWalletAddress + LoadNFTStateFromFirebase appelé après personal sign");
+            }
             var nftVerification = FindObjectOfType<NFTVerification>();
             if (nftVerification != null)
             {
@@ -188,12 +196,23 @@ namespace Sample
             Debug.Log("[Connect] Signature personnelle validée !");
             try
             {
+                PlayerPrefs.SetInt("personalSignApproved", 1);
+                PlayerPrefs.Save();
+                Debug.Log($"[Connect] personalSignApproved flag set to {PlayerPrefs.GetInt("personalSignApproved", 0)}");
                 OnPersonalSignCompleted?.Invoke(); // Événement émis après la signature
                 var nftVerification = FindObjectOfType<NFTVerification>();
                 if (nftVerification != null)
                 {
                     nftVerification.ForceNFTCheck();
                     Debug.Log("[Connect] ForceNFTCheck lancé après signature !");
+                }
+                // Ajout : charger les données NFT APRES la signature
+                var nftManager = FindObjectOfType<ChogTanksNFTManager>();
+                if (nftManager != null)
+                {
+                    nftManager.LoadNFTStateFromFirebase();
+                    nftManager.ForceLevelTextDisplay();
+                    Debug.Log("[Connect] LoadNFTStateFromFirebase + ForceLevelTextDisplay appelé après personal sign (dans coroutine)");
                 }
             }
             catch (System.Exception signEx)
