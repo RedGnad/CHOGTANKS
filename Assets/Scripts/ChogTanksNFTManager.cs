@@ -56,7 +56,7 @@ public class ChogTanksNFTManager : MonoBehaviour
     
     private string currentPlayerWallet = "";
     private bool isProcessingEvolution = false;
-    private NFTStateData currentNFTState = new NFTStateData();
+    public NFTStateData currentNFTState = new NFTStateData();
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
@@ -209,8 +209,23 @@ public class ChogTanksNFTManager : MonoBehaviour
         Debug.Log($"[NFT-DEBUG] UpdateLevelUI called with level={level}");
         if (levelText != null)
         {
-            levelText.gameObject.SetActive(true);
-            levelText.text = level > 0 ? $"NFT Level: {level}" : "No NFT";
+            // Vérification des conditions d'affichage
+            string wallet = currentPlayerWallet;
+            bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
+            bool walletInPrefs = !string.IsNullOrEmpty(PlayerPrefs.GetString("walletAddress", ""));
+            bool walletConnected = !string.IsNullOrEmpty(wallet);
+            bool showLevel = (walletConnected && signApproved) || walletInPrefs;
+
+            levelText.gameObject.SetActive(showLevel);
+            if (showLevel)
+            {
+                levelText.text = level > 0 ? $"NFT Level: {level}" : "No NFT";
+            }
+            else
+            {
+                levelText.text = "";
+            }
+            Debug.Log($"[NFT-DEBUG] Affichage levelText: showLevel={showLevel}, walletConnected={walletConnected}, signApproved={signApproved}, walletInPrefs={walletInPrefs}");
         }
     }
 
@@ -411,9 +426,9 @@ public class ChogTanksNFTManager : MonoBehaviour
                 try 
                 {
                     var result = await Reown.AppKit.Unity.AppKit.Evm.SendTransactionAsync(
-                        CONTRACT_ADDRESS,  // to address
-                        BigInteger.Zero,   // value (no ETH sent)
-                        data               // transaction data
+                        CONTRACT_ADDRESS,  
+                        BigInteger.Zero,   
+                        data               
                     );
                     
                     if (!string.IsNullOrEmpty(result))
@@ -505,7 +520,7 @@ public class ChogTanksNFTManager : MonoBehaviour
         {
             UpdateStatusUI("NFT créé avec succès! Récupération du tokenId...");
             
-            await Task.Delay(3000); // 3 secondes
+            await Task.Delay(3000); 
             
             int actualTokenId = await GetPlayerNFTTokenId(currentPlayerWallet);
             
@@ -513,7 +528,7 @@ public class ChogTanksNFTManager : MonoBehaviour
             {
                 currentNFTState.tokenId = actualTokenId;
                 currentNFTState.hasNFT = true;
-                currentNFTState.level = 1;  // Le niveau initial est 1
+                currentNFTState.level = 1; 
                 
                 string updateData = JsonUtility.ToJson(currentNFTState);
                 UpdateNFTDataInFirebase(updateData);
@@ -778,12 +793,5 @@ public class ChogTanksNFTManager : MonoBehaviour
         {
             Debug.LogWarning("[NFT] No wallet connected");
         }
-    }
-
-    // Minimal: Add public method to force NFT state refresh after personal sign
-    public void ForceNFTCheck()
-    {
-        RefreshWalletAddress();
-        LoadNFTStateFromFirebase();
     }
 }

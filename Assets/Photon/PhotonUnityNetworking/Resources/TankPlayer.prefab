@@ -782,7 +782,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   nameText: {fileID: 2281634363343905539}
   nameCanvas: {fileID: 4563181086445258538}
-  heightOffset: 10
+  heightOffset: 17
   localPlayerColor: {r: 1, g: 1, b: 1, a: 1}
   otherPlayerColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!114 &5813192510985837755

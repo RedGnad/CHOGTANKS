@@ -42,6 +42,7 @@ public class TankAppearanceHandler : MonoBehaviourPun
             "steve",
             "bananachog",
             "beholdak",
+            "mouch",
         };
         
         if (index >= 0 && index < skins.Length)

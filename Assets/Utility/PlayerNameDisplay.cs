@@ -49,8 +49,21 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
             {
                 playerName = $"Player {photonView.Owner.ActorNumber}";
             }
+
+            if (photonView.IsMine)
+            {
+                var nftManager = FindObjectOfType<ChogTanksNFTManager>();
+                if (nftManager != null && nftManager.currentNFTState != null)
+                {
+                    int nftLevel = nftManager.currentNFTState.level;
+                    if (nftLevel > 0)
+                    {
+                        playerName += $" lvl {nftLevel}";
+                    }
+                }
+            }
+
             nameText.text = playerName;
-            
             if (photonView.IsMine)
             {
                 nameText.color = localPlayerColor;

@@ -51,7 +51,6 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         createRoomButton.onClick.AddListener(OnCreateRoom);
         joinRoomButton.onClick.AddListener(OnJoinRoom);
         
-        // NOUVEAU : Connecter le bouton GO
         if (goButton != null)
             goButton.onClick.AddListener(OnGoButtonClicked);
 
@@ -65,7 +64,6 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         createRoomButton.interactable = false;
         joinRoomButton.interactable = false;
         
-        // NOUVEAU : Désactiver le bouton GO par défaut
         if (goButton != null)
             goButton.interactable = false;
             
@@ -96,13 +94,11 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     
     private void OnEnable()
     {
-        // S'enregistrer aux callbacks Photon
         PhotonNetwork.AddCallbackTarget(this);
     }
     
     private void OnDisable()
     {
-        // Se désenregistrer des callbacks Photon
         PhotonNetwork.RemoveCallbackTarget(this);
     }
 
@@ -155,14 +151,12 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
 
-    // NOUVELLE MÉTHODE : Gérer le clic sur le bouton GO
     void OnGoButtonClicked()
     {
         launcher.JoinRandomPublicRoom();
         joinPanel.SetActive(false);
         waitingPanel.SetActive(true);
         
-        // Changer le texte pour indiquer qu'on cherche une room
         if (createdCodeText != null)
             createdCodeText.text = "Searching for players...";
     }
@@ -190,17 +184,31 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
 
     public void OnJoinedRoomUI(string code)
     {
-        createdCodeText.text = "Room code: " + code;
+        Debug.Log($"[LOBBYUI] OnJoinedRoomUI code='{code}', launcher.roomName='{(launcher != null ? launcher.roomName : "null")}'");
+        if (launcher != null && launcher.roomName == "")
+        {
+            createdCodeText.text = "";
+        }
+        else if (!string.IsNullOrEmpty(code) && code.Length == 36 && code.Contains("-"))
+        {
+            createdCodeText.text = "";
+        }
+        else if (string.IsNullOrEmpty(code) || code.Length > 8 || code.Contains("-"))
+        {
+            createdCodeText.text = "";
+        }
+        else
+        {
+            createdCodeText.text = "Room code: " + code;
+        }
         joinPanel.SetActive(false);
         waitingPanel.SetActive(true);
         UpdatePlayerList();
         HideWaitingForPlayerTextIfRoomFull();
     }
 
-    // NOUVELLE MÉTHODE : Gérer quand on rejoint une room publique
     public void OnJoinedRandomRoomUI()
     {
-        // Si c'est une room publique (pas de code), afficher un message différent
         if (createdCodeText != null)
             createdCodeText.text = "Joined public match!";
             
@@ -274,8 +282,6 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
 
-    // --- Waiting Text Management ---
-
     public void HideWaitingForPlayerTextIfRoomFull()
     {
         if (PhotonNetwork.CurrentRoom != null && waitingForPlayerText != null)
@@ -310,30 +316,24 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
     
-    // Appelé quand on quitte une room et revient au lobby
     public void OnLeftRoom()
     {
-        // Réinitialiser le panel de skins sans forcer sa fermeture
         SimpleSkinSelector skinSelector = FindObjectOfType<SimpleSkinSelector>();
         if (skinSelector != null)
         {
-            // Juste cacher le panel s'il est ouvert, sans réinitialiser tout
             skinSelector.HideSkinPanel();
         }
         
-        // Fermer le settings panel si ouvert
         SettingsPanelManager settingsManager = FindObjectOfType<SettingsPanelManager>();
         if (settingsManager != null)
         {
             settingsManager.HideSettingsPanel();
         }
         
-        // Autres réinitialisations du lobby si nécessaire
         joinPanel.SetActive(true);
         waitingPanel.SetActive(false);
     }
     
-    // Autres méthodes requises par IMatchmakingCallbacks (vides si pas utilisées)
     public void OnFriendListUpdate(System.Collections.Generic.List<FriendInfo> friendList) { }
     public void OnCreatedRoom() { }
     public void OnCreateRoomFailed(short returnCode, string message) { }

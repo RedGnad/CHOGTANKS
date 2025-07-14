@@ -220,25 +220,23 @@ namespace Sample
             try
             {
                 var account = AppKit.Account;
-
-                var message = $"Hello from Unity! (Request #{messageCounter})";
-
+                var message = $"Hello Choggie! (Request #{messageCounter})";
                 Notification.ShowMessage($"Signing message:\n\n{message}");
-
 #if !UNITY_WEBGL || !UNITY_EDITOR
                 // await System.Threading.Tasks.Task.Delay(1_000);
 #endif
-
-                // It's also possible to sign a message as a byte array
-                // var messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
-                // var signature = await AppKit.Evm.SignMessageAsync(messageBytes);
-
+                Debug.Log("[DEBUG] Avant SignMessageAsync");
                 var signature = await AppKit.Evm.SignMessageAsync(message);
                 Debug.Log($"Recieved signature: {signature}");
                 var isValid = await AppKit.Evm.VerifyMessageSignatureAsync(account.Address, message, signature);
-
                 Notification.ShowMessage($"Signature valid: {isValid} (Request #{messageCounter})");
                 OnPersonalSignCompleted?.Invoke();
+                // Ajout: déclencher la vérification NFT ici
+                var nftVerification = FindObjectOfType<NFTVerification>();
+                if (nftVerification != null)
+                {
+                    nftVerification.ForceNFTCheck();
+                }
             }
             catch (ReownNetworkException e)
             {

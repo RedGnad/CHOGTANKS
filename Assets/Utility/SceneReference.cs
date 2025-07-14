@@ -13,7 +13,7 @@ namespace Sample
 
         public void OnBeforeSerialize()
         {
-            // No implementation needed
+            // ...
         }
 
         public void OnAfterDeserialize()

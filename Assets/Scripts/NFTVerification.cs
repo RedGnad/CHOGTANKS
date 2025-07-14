@@ -90,30 +90,12 @@ public class NFTVerification : MonoBehaviour
         {
             statusText.gameObject.SetActive(false);
         }
-        
-        // D'abord, verrouiller TOUS les boutons au démarrage
         LockAllButtons();
-        
-        // Vérifier si un wallet est connecté
         currentWallet = PlayerPrefs.GetString("walletAddress", "");
-        
         if (!string.IsNullOrEmpty(currentWallet))
         {
             StartCoroutine(CheckAllNFTs());
         }
-    }
-
-    public void OnWalletConnected(string walletAddress)
-    {
-        currentWallet = walletAddress;
-        PlayerPrefs.SetString("walletAddress", walletAddress);
-        
-        // Verrouiller d'abord tous les boutons
-        LockAllButtons();
-        
-        // Puis vérifier NFTs
-        UpdateStatus("Wallet connecté: " + walletAddress);
-        StartCoroutine(CheckAllNFTs());
     }
 
     public void StartVerification()
@@ -586,5 +568,9 @@ public class NFTVerification : MonoBehaviour
                 UpdateButtonFromRule(rule, false);
             }
         }
+    }
+
+    private void OnDestroy()
+    {
     }
 }

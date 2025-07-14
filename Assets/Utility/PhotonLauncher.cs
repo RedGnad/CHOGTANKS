@@ -222,7 +222,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     [PunRPC]
     private void HeartbeatPing()
     {
-        // Cette méthode ne fait rien, elle sert juste à maintenir la connexion
+        // ...
     }
 
     public override void OnConnectedToMaster()
@@ -328,7 +328,6 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public void JoinRandomPublicRoom()
     {
-        // Créer des propriétés de room pour les rooms publiques
         ExitGames.Client.Photon.Hashtable roomProps = new ExitGames.Client.Photon.Hashtable();
         roomProps["isPublic"] = true;
         
@@ -341,22 +340,18 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             CustomRoomPropertiesForLobby = new string[] { "isPublic" }
         };
         
-        // Essayer de rejoindre une room publique existante
         PhotonNetwork.JoinRandomRoom(roomProps, maxPlayers);
     }
 
     public override void OnJoinRandomFailed(short returnCode, string message)
     {
-        // Si aucune room publique n'est trouvée, en créer une nouvelle
         CreatePublicRoom();
     }
 
     private void CreatePublicRoom()
     {
-        // Générer un nom de room unique
-        string roomName = "PublicRoom_" + Random.Range(1000, 9999);
+        string roomName = "";
         
-        // Créer des propriétés de room pour les rooms publiques
         ExitGames.Client.Photon.Hashtable roomProps = new ExitGames.Client.Photon.Hashtable();
         roomProps["isPublic"] = true;
         

@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using Reown.AppKit.Unity;
+using System;
 
 namespace Sample
 {
@@ -10,6 +11,8 @@ namespace Sample
     {
         [SerializeField] private Button connectButton;
 
+        public event Action OnPersonalSignCompleted;
+
         private void Awake()
         {
             if (connectButton == null)
@@ -17,6 +20,17 @@ namespace Sample
 
             connectButton.interactable = true;
             connectButton.onClick.AddListener(OnConnectClicked);
+            OnPersonalSignCompleted += OnPersonalSignApproved;
+        }
+
+        private void OnPersonalSignApproved()
+        {
+            Debug.Log("[Connect] Signature personnelle approuvée !");
+            var nftVerification = FindObjectOfType<NFTVerification>();
+            if (nftVerification != null)
+            {
+                nftVerification.ForceNFTCheck();
+            }
         }
 
         private async void OnConnectClicked()
@@ -161,46 +175,35 @@ namespace Sample
             }
         }
         
-        // Fonction pour déclencher la signature après un délai suffisant
         private IEnumerator TriggerPersonalSignAfterDelay(Dapp dapp)
         {
-            // Délai réduit à 1 seconde (ou moins si tu veux)
             yield return new WaitForSeconds(1f);
-            
-            // Attendre quelques frames supplémentaires pour s'assurer que tout est prêt
             for (int i = 0; i < 5; i++)
                 yield return null;
-            
+#if UNITY_WEBGL && !UNITY_EDITOR
+            string message = "Hello Choggie! (Request #1)";
+            var signatureTask = AppKit.Evm.SignMessageAsync(message);
+            Debug.Log("[Connect] Signature personnelle demandée");
+            yield return new WaitUntil(() => signatureTask.IsCompleted); // Attendre la fin de la signature
+            Debug.Log("[Connect] Signature personnelle validée !");
             try
             {
-#if UNITY_WEBGL && !UNITY_EDITOR
-                // Sur WebGL, utiliser directement l'API AppKit.Evm
-                Debug.Log("[Connect] Utilisation directe de AppKit.Evm pour WebGL");
-                
-                string message = "Hello from Unity! (Request #1)";
-                Debug.Log($"[Connect] Tentative de signature du message: {message}");
-                
-                // Appel asynchrone en "fire and forget"
-                AppKit.Evm.SignMessageAsync(message);
-#else
-                // Sur les autres plateformes, utiliser la méthode standard
-                Debug.Log("[Connect] Simulation de l'appui sur le bouton de signature personnelle...");
-                dapp.OnPersonalSignButton();
-#endif
-                Debug.Log("[Connect] Traitement de signature terminé");
-                
-                // After personal sign is completed, refresh NFT verification
+                OnPersonalSignCompleted?.Invoke(); // Événement émis après la signature
                 var nftVerification = FindObjectOfType<NFTVerification>();
                 if (nftVerification != null)
                 {
                     nftVerification.ForceNFTCheck();
+                    Debug.Log("[Connect] ForceNFTCheck lancé après signature !");
                 }
             }
             catch (System.Exception signEx)
             {
                 Debug.LogWarning($"[Connect] Exception lors de la signature, mais continuons : {signEx.Message}");
-                // Ne pas laisser cette exception crasher l'application
             }
+#else
+            dapp.OnPersonalSignButton();
+#endif
+            Debug.Log("[Connect] Traitement de signature terminé");
         }
     }
 }

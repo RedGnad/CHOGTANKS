@@ -53,11 +53,10 @@ public class CameraFollow : MonoBehaviour
         PhotonView[] photonViews = FindObjectsOfType<PhotonView>();
         foreach (PhotonView pv in photonViews)
         { 
-            // Si le PhotonView appartient au client local et a le bon tag
             if (pv.IsMine && pv.CompareTag("Player"))
             {
                 target = pv.transform;
-                return; // On a trouvé notre tank, on arrête la recherche
+                return;
             }
         }
     }

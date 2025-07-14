@@ -4,7 +4,6 @@ using System;
 
 public class PhotonTankSpawner : MonoBehaviourPunCallbacks
 {
-    // Événement déclenché lorsqu'un tank est spawné (GameObject du tank, PhotonView)
     public static event Action<GameObject, PhotonView> OnTankSpawned;
     
     [Header("Spawns multiples")]
@@ -45,12 +44,6 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         }
 
         var lobbyUI = FindObjectOfType<LobbyUI>();
-        if (lobbyUI != null && PhotonNetwork.CurrentRoom != null)
-        {
-            lobbyUI.createdCodeText.text = "Room code : " + PhotonNetwork.CurrentRoom.Name;
-        }
-        
-        // Déclencher l'événement OnTankSpawned
         OnTankSpawned?.Invoke(tank, view);
     }
 }

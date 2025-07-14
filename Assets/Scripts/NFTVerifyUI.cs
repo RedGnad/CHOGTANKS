@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using Sample;
 
 public class NFTVerifyUI : MonoBehaviour
 {
@@ -16,24 +17,39 @@ public class NFTVerifyUI : MonoBehaviour
         {
             statusText.gameObject.SetActive(false);
         }
+        if (nameInputPanel != null)
+        {
+            nameInputPanel.SetActive(false); 
+        }
+        // S'abonner à l'événement de signature
+        var connect = FindObjectOfType<ConnectWalletButton>();
+        if (connect != null)
+            connect.OnPersonalSignCompleted += OnPersonalSignApproved;
         
         CheckWalletAndUpdateUI();
         InvokeRepeating(nameof(CheckWalletAndUpdateUI), 1f, 1f);
     }
     
+    private void OnPersonalSignApproved()
+    {
+        if (nameInputPanel != null)
+            nameInputPanel.SetActive(true); // Afficher le panel après la signature
+    }
+    
     private void CheckWalletAndUpdateUI()
     {
         bool isWalletConnected = IsWalletConnected();
-        
-        if (nameInputPanel != null)
-        {
-            nameInputPanel.SetActive(isWalletConnected);
-        }
-        
-        // Si wallet déconnecté, verrouiller les boutons
+        // Ne pas afficher le panel ici
+        // if (nameInputPanel != null)
+        // {
+        //     nameInputPanel.SetActive(isWalletConnected);
+        // }
+        // Si wallet déconnecté, verrouiller les boutons et masquer le panel
         if (!isWalletConnected && nftVerification != null)
         {
             nftVerification.DisconnectWallet();
+            if (nameInputPanel != null)
+                nameInputPanel.SetActive(false);
         }
     }
     
@@ -163,7 +179,6 @@ public class NFTVerifyUI : MonoBehaviour
         string wallet = PlayerPrefs.GetString("walletAddress", "");
         Debug.Log($"[NFT-DEBUG] Démarrage vérification NFT pour wallet: {wallet}");
         
-        nftVerification.ForceNFTCheck();
     }
     
     public void ClearStatus()
@@ -182,6 +197,10 @@ public class NFTVerifyUI : MonoBehaviour
     
     private void OnDestroy()
     {
+        var dapp = FindObjectOfType<Sample.Dapp>();
+        if (dapp != null)
+            dapp.OnPersonalSignCompleted -= OnPersonalSignApproved;
+        
         CancelInvoke(nameof(CheckWalletAndUpdateUI));
     }
 }
