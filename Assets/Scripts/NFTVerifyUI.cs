@@ -29,6 +29,12 @@ public class NFTVerifyUI : MonoBehaviour
         {
             nameInputPanel.SetActive(isWalletConnected);
         }
+        
+        // Si wallet déconnecté, verrouiller les boutons
+        if (!isWalletConnected && nftVerification != null)
+        {
+            nftVerification.DisconnectWallet();
+        }
     }
     
     private bool IsWalletConnected()
@@ -130,9 +136,11 @@ public class NFTVerifyUI : MonoBehaviour
 
     public void OnVerifyButtonClick()
     {
+        Debug.Log("[NFT-DEBUG] OnVerifyButtonClick appelé");
         
         if (nftVerification == null)
         {
+            Debug.LogError("[NFT-DEBUG] ERREUR: NFTVerification non trouvé!");
             if (statusText != null)
             {
                 ShowStatus("Erreur: Référence manquante", true);
@@ -142,6 +150,7 @@ public class NFTVerifyUI : MonoBehaviour
 
         if (!IsWalletConnected())
         {
+            Debug.LogError("[NFT-DEBUG] ERREUR: Pas de wallet connecté!");
             if (statusText != null)
             {
                 ShowStatus("no wallet connected", true);
@@ -150,6 +159,10 @@ public class NFTVerifyUI : MonoBehaviour
         }
 
         ShowStatus("Vérification en cours...");
+        
+        string wallet = PlayerPrefs.GetString("walletAddress", "");
+        Debug.Log($"[NFT-DEBUG] Démarrage vérification NFT pour wallet: {wallet}");
+        
         nftVerification.ForceNFTCheck();
     }
     

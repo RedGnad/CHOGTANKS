@@ -173,10 +173,11 @@ public class ChogTanksNFTManager : MonoBehaviour
 
     public void OnNFTStateLoaded(string nftStateJson)
     {
+        Debug.Log($"[NFT-DEBUG] OnNFTStateLoaded json={nftStateJson}");
         try
         {
             currentNFTState = JsonUtility.FromJson<NFTStateData>(nftStateJson);
-            
+            Debug.Log($"[NFT-DEBUG] NFT loaded: hasNFT={currentNFTState.hasNFT}, level={currentNFTState.level}");
             if (currentNFTState.hasNFT && currentNFTState.level > 0)
             {
                 UpdateStatusUI($"You have a Level {currentNFTState.level} NFT");
@@ -192,7 +193,6 @@ public class ChogTanksNFTManager : MonoBehaviour
         {
             Debug.LogError($"[NFT] Error parsing NFT state: {ex.Message}");
             UpdateStatusUI("Error loading NFT state");
-            
             currentNFTState = new NFTStateData
             {
                 hasNFT = false,
@@ -200,6 +200,17 @@ public class ChogTanksNFTManager : MonoBehaviour
                 walletAddress = currentPlayerWallet,
                 score = 0
             };
+        }
+    }
+
+    // Correction: fusionner les logs dans la version existante de UpdateLevelUI
+    void UpdateLevelUI(int level)
+    {
+        Debug.Log($"[NFT-DEBUG] UpdateLevelUI called with level={level}");
+        if (levelText != null)
+        {
+            levelText.gameObject.SetActive(true);
+            levelText.text = level > 0 ? $"NFT Level: {level}" : "No NFT";
         }
     }
 
@@ -734,14 +745,6 @@ public class ChogTanksNFTManager : MonoBehaviour
         isProcessingEvolution = false;
     }
 
-    void UpdateLevelUI(int level)
-    {
-        if (levelText != null)
-        {
-            levelText.text = level > 0 ? $"NFT Level: {level}" : "No NFT";
-        }
-    }
-
     void UpdateStatusUI(string message)
     {
         if (statusText != null)
@@ -775,5 +778,12 @@ public class ChogTanksNFTManager : MonoBehaviour
         {
             Debug.LogWarning("[NFT] No wallet connected");
         }
+    }
+
+    // Minimal: Add public method to force NFT state refresh after personal sign
+    public void ForceNFTCheck()
+    {
+        RefreshWalletAddress();
+        LoadNFTStateFromFirebase();
     }
 }

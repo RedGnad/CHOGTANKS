@@ -168,24 +168,6 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         PhotonNetwork.JoinRoom(roomName);
     }
 
-    public void JoinRandomPublicRoom()
-    {
-        if (!PhotonNetwork.IsConnectedAndReady)
-        {
-            Debug.LogError("Pas connecté à Photon");
-            return;
-        }
-        
-        Debug.Log("Recherche d'une room publique...");
-        
-        // Spécifier des critères pour trouver les rooms publiques
-        ExitGames.Client.Photon.Hashtable expectedCustomRoomProperties = new ExitGames.Client.Photon.Hashtable();
-        expectedCustomRoomProperties["IsPublic"] = true;
-        
-        // Essayer de rejoindre une room publique aléatoire avec les critères spécifiés
-        PhotonNetwork.JoinRandomRoom(expectedCustomRoomProperties, 0);
-    }
-
     public void SetPlayerName(string playerName)
     {
         if (string.IsNullOrEmpty(playerName))
@@ -297,21 +279,10 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public override void OnJoinedRoom()
     {
-        Debug.Log("Rejoint une room: " + PhotonNetwork.CurrentRoom.Name);
-        
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            // Vérifier si c'est une room publique ou privée
-            if (PhotonNetwork.CurrentRoom.Name.StartsWith("PublicRoom_"))
-            {
-                lobbyUI.OnJoinedRandomRoomUI();
-            }
-            else
-            {
-                // Room privée avec code
-                lobbyUI.OnJoinedRoomUI(PhotonNetwork.CurrentRoom.Name);
-            }
+            lobbyUI.OnJoinedRoomUI(PhotonNetwork.CurrentRoom.Name);
         }
         
         
@@ -335,28 +306,6 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
     }
 
-    public override void OnJoinRandomFailed(short returnCode, string message)
-    {
-        Debug.Log("Aucune room publique trouvée, création d'une nouvelle room...");
-        
-        // Créer une nouvelle room publique avec des propriétés personnalisées
-        string roomName = "PublicRoom_" + Random.Range(1000, 9999);
-        
-        ExitGames.Client.Photon.Hashtable customRoomProperties = new ExitGames.Client.Photon.Hashtable();
-        customRoomProperties["IsPublic"] = true;
-        
-        RoomOptions roomOptions = new RoomOptions
-        {
-            MaxPlayers = 8,
-            IsVisible = true,
-            IsOpen = true,
-            CustomRoomProperties = customRoomProperties,
-            CustomRoomPropertiesForLobby = new string[] { "IsPublic" }
-        };
-        
-        PhotonNetwork.CreateRoom(roomName, roomOptions);
-    }
-
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
@@ -375,5 +324,51 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             lobbyUI.ShowWaitingForPlayerTextIfNotFull();
             lobbyUI.UpdatePlayerList();
         }
+    }
+
+    public void JoinRandomPublicRoom()
+    {
+        // Créer des propriétés de room pour les rooms publiques
+        ExitGames.Client.Photon.Hashtable roomProps = new ExitGames.Client.Photon.Hashtable();
+        roomProps["isPublic"] = true;
+        
+        RoomOptions options = new RoomOptions 
+        { 
+            MaxPlayers = maxPlayers, 
+            IsVisible = true, 
+            IsOpen = true,
+            CustomRoomProperties = roomProps,
+            CustomRoomPropertiesForLobby = new string[] { "isPublic" }
+        };
+        
+        // Essayer de rejoindre une room publique existante
+        PhotonNetwork.JoinRandomRoom(roomProps, maxPlayers);
+    }
+
+    public override void OnJoinRandomFailed(short returnCode, string message)
+    {
+        // Si aucune room publique n'est trouvée, en créer une nouvelle
+        CreatePublicRoom();
+    }
+
+    private void CreatePublicRoom()
+    {
+        // Générer un nom de room unique
+        string roomName = "PublicRoom_" + Random.Range(1000, 9999);
+        
+        // Créer des propriétés de room pour les rooms publiques
+        ExitGames.Client.Photon.Hashtable roomProps = new ExitGames.Client.Photon.Hashtable();
+        roomProps["isPublic"] = true;
+        
+        RoomOptions options = new RoomOptions 
+        { 
+            MaxPlayers = maxPlayers, 
+            IsVisible = true, 
+            IsOpen = true,
+            CustomRoomProperties = roomProps,
+            CustomRoomPropertiesForLobby = new string[] { "isPublic" }
+        };
+        
+        PhotonNetwork.CreateRoom(roomName, options);
     }
 }

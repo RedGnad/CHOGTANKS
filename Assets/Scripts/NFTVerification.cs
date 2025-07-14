@@ -7,6 +7,32 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
 [Serializable]
+public class ButtonUnlockRule
+{
+    [Tooltip("Le bouton à activer/désactiver")]
+    public UnityEngine.UI.Button button;
+    
+    [Tooltip("Texte TMP à afficher quand le bouton est verrouillé (optionnel)")]
+    public TMPro.TextMeshProUGUI lockedText;
+    
+    [Tooltip("Message à afficher quand verrouillé")]
+    public string lockedMessage = "NFT requis";
+    
+    [Tooltip("Liste des adresses de contrats NFT")]
+    public List<string> requiredNFTContracts = new List<string>();
+    
+    [Tooltip("Nombre minimum de NFTs différents requis pour débloquer")]
+    [Range(1, 10)]
+    public int minNFTsRequired = 1;
+    
+    [Tooltip("Couleur du bouton quand débloqué")]
+    public Color unlockedColor = Color.white;
+    
+    [Tooltip("Couleur du bouton quand verrouillé")]
+    public Color lockedColor = Color.gray;
+}
+
+[Serializable]
 public class NFTCondition
 {
     public enum Standard { ERC721, ERC1155 }
@@ -47,6 +73,10 @@ public class NFTVerification : MonoBehaviour
     [Tooltip("Message à afficher quand aucun NFT n'est détecté")]
     public string noNFTOwnedMessage = "";
 
+    [Header("Button Management")]
+    [Tooltip("Configuration des boutons à débloquer selon les NFTs")]
+    public List<ButtonUnlockRule> buttonUnlockRules = new List<ButtonUnlockRule>();
+
     const string SEL_ERC1155_BALANCE = "0x00fdd58e";  
     const string SEL_ERC721_BALANCE  = "0x70a08231";  
     const string SEL_ERC721_OWNER    = "0x6352211e";
@@ -61,26 +91,27 @@ public class NFTVerification : MonoBehaviour
             statusText.gameObject.SetActive(false);
         }
         
+        // D'abord, verrouiller TOUS les boutons au démarrage
+        LockAllButtons();
+        
+        // Vérifier si un wallet est connecté
         currentWallet = PlayerPrefs.GetString("walletAddress", "");
-        Debug.Log($"[NFT] Adresse lue depuis PlayerPrefs: {currentWallet}");
         
         if (!string.IsNullOrEmpty(currentWallet))
         {
-            Debug.Log("[NFT] Wallet connecté: " + currentWallet);
             StartCoroutine(CheckAllNFTs());
-        }
-        else
-        {
-            Debug.LogWarning("[NFT] Aucun wallet connecté trouvé dans PlayerPrefs");
-            bool hasKey = PlayerPrefs.HasKey("walletAddress");
-            Debug.Log($"[NFT] La clé walletAddress existe: {hasKey}");
         }
     }
 
     public void OnWalletConnected(string walletAddress)
     {
         currentWallet = walletAddress;
-        PlayerPrefs.SetString("WalletAddress", walletAddress);
+        PlayerPrefs.SetString("walletAddress", walletAddress);
+        
+        // Verrouiller d'abord tous les boutons
+        LockAllButtons();
+        
+        // Puis vérifier NFTs
         UpdateStatus("Wallet connecté: " + walletAddress);
         StartCoroutine(CheckAllNFTs());
     }
@@ -97,15 +128,23 @@ public class NFTVerification : MonoBehaviour
 
     IEnumerator CheckAllNFTs()
     {
+        Debug.Log("[NFT-DEBUG] Début de CheckAllNFTs");
         UpdateStatus("Verifying NFTs...", true);
         
         if (string.IsNullOrEmpty(currentWallet))
         {
             string error = "No Connected Wallet";
-            UpdateStatus(error, true); 
+            Debug.Log("[NFT-DEBUG] Erreur: pas de wallet connecté");
+            UpdateStatus(error, true);
+            
+            // Verrouiller tous les boutons si pas de wallet
+            LockAllButtons();
             yield break;
         }
 
+        Debug.Log($"[NFT-DEBUG] Vérification avec wallet: {currentWallet}");
+        bool anyNFTFound = false;
+        
         foreach (var condition in conditions)
         {
             bool ownsNFT = false;
@@ -161,6 +200,7 @@ public class NFTVerification : MonoBehaviour
 
             if (ownsNFT)
             {
+                anyNFTFound = true;
                 yield return null;
                 
                 if (statusText != null)
@@ -170,21 +210,27 @@ public class NFTVerification : MonoBehaviour
                     statusText.gameObject.SetActive(true);
                 }
                 
-                yield break;
+                break;
             }
         }
 
-        if (!string.IsNullOrEmpty(noNFTOwnedMessage))
+        if (!anyNFTFound)
         {
-            UpdateStatus(noNFTOwnedMessage, true);
-        }
-        else
-        {
-            if (statusText != null)
+            if (!string.IsNullOrEmpty(noNFTOwnedMessage))
             {
-                statusText.gameObject.SetActive(false);
+                UpdateStatus(noNFTOwnedMessage, true);
+            }
+            else
+            {
+                if (statusText != null)
+                {
+                    statusText.gameObject.SetActive(false);
+                }
             }
         }
+        
+        // Vérifier les boutons - toujours vérifier, même si un NFT a été trouvé
+        yield return StartCoroutine(CheckButtonUnlocks());
     }
 
     IEnumerator CheckBalance1155(string contract, string wallet, string tokenId, Action<bool> cb)
@@ -202,13 +248,30 @@ public class NFTVerification : MonoBehaviour
 
     IEnumerator CheckBalance721(string contract, string wallet, Action<bool> cb)
     {
-        string ownerHex = wallet.StartsWith("0x") ? wallet.Substring(2).PadLeft(64, '0') : wallet.PadLeft(64, '0');
-        string data = SEL_ERC721_BALANCE + ownerHex + new string('0', 64);
+        // Format de l'adresse
+        string ownerHex = wallet;
+        if (wallet.StartsWith("0x")) ownerHex = wallet.Substring(2);
+        ownerHex = ownerHex.ToLower().PadLeft(64, '0');
+        
+        // Appel ABI: balanceOf(address)
+        string data = SEL_ERC721_BALANCE + ownerHex;
         
         yield return CallRpc(contract, data, cb, res =>
         {
-            var bal = BigInteger.Parse(res.Substring(2), System.Globalization.NumberStyles.HexNumber);
-            return bal > 0;
+            if (string.IsNullOrEmpty(res) || res == "0x")
+            {
+                return false;
+            }
+            
+            try
+            {
+                var bal = BigInteger.Parse(res.Substring(2), System.Globalization.NumberStyles.HexNumber);
+                return bal > 0;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         });
     }
 
@@ -237,7 +300,7 @@ public class NFTVerification : MonoBehaviour
         }));
 
         string topicTo = "0x" + wallet.Substring(2).PadLeft(64, '0');
-        BigInteger chunk = 100, start = BigInteger.Max(0, latest - 1000); 
+        BigInteger chunk = 100, start = 0; 
         bool found = false;
         
         while (start <= latest && !found)
@@ -288,13 +351,23 @@ public class NFTVerification : MonoBehaviour
             
             try
             {
-                string res = JObject.Parse(json)["result"].Value<string>();
-                cb(parse(res));
+                var response = JObject.Parse(json);
+                
+                if (response["error"] != null)
+                {
+                    cb(false);
+                    return;
+                }
+                
+                string res = response["result"].Value<string>();
+                bool parseResult = parse(res);
+                cb(parseResult);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 string errorMsg = "No NFT found";
                 UpdateStatus(errorMsg, true); 
+                cb(false);
             }
         });
     }
@@ -358,16 +431,21 @@ public class NFTVerification : MonoBehaviour
     public void DisconnectWallet()
     {
         currentWallet = "";
-        PlayerPrefs.DeleteKey("WalletAddress");
+        PlayerPrefs.DeleteKey("walletAddress");
         PlayerPrefs.Save();
         UpdateStatus("Déconnecté");
+        
+        // Verrouiller tous les boutons
+        LockAllButtons();
     }
     
     public void ForceNFTCheck()
     {
+        Debug.Log("[NFT-DEBUG] ForceNFTCheck appelé");
         
         if (!string.IsNullOrEmpty(currentWallet))
         {
+            Debug.Log($"[NFT-DEBUG] Vérification avec wallet existant: {currentWallet}");
             StartCoroutine(CheckAllNFTs());
             return;
         }
@@ -376,17 +454,136 @@ public class NFTVerification : MonoBehaviour
         
         if (!string.IsNullOrEmpty(savedAddress))
         {
+            Debug.Log($"[NFT-DEBUG] Vérification avec wallet des PlayerPrefs: {savedAddress}");
             currentWallet = savedAddress;
             StartCoroutine(CheckAllNFTs());
         }
         else
         {
-            bool hasKey = PlayerPrefs.HasKey("walletAddress");
-            
+            Debug.Log("[NFT-DEBUG] Pas de wallet disponible");
             if (statusText != null)
             {
-                statusText.text = "chog chest mega chad holder";
+                statusText.text = "Wallet connection required";
                 statusText.gameObject.SetActive(true);
+            }
+        }
+    }
+    
+    IEnumerator CheckButtonUnlocks()
+    {
+        Debug.Log("[NFT-DEBUG] Début de vérification des boutons");
+        Debug.Log($"[NFT-DEBUG] Nombre de règles de boutons: {buttonUnlockRules.Count}");
+        
+        for (int ruleIndex = 0; ruleIndex < buttonUnlockRules.Count; ruleIndex++)
+        {
+            var rule = buttonUnlockRules[ruleIndex];
+            if (rule.button == null || rule.requiredNFTContracts.Count == 0)
+            {
+                Debug.Log($"[NFT-DEBUG] Règle ignorée (bouton null ou pas de contrats): index {ruleIndex}");
+                continue;
+            }
+                
+            Debug.Log($"[NFT-DEBUG] Vérification règle pour bouton: {rule.button.name}");
+            yield return StartCoroutine(CheckButtonRule(rule));
+        }
+        
+        Debug.Log("[NFT-DEBUG] Fin de vérification des boutons");
+    }
+    
+    IEnumerator CheckButtonRule(ButtonUnlockRule rule)
+    {
+        Debug.Log($"[NFT-DEBUG] Vérification règle pour bouton: {rule.button.name}");
+        Debug.Log($"[NFT-DEBUG] Contrats requis: {string.Join(", ", rule.requiredNFTContracts)}");
+        Debug.Log($"[NFT-DEBUG] Minimum NFTs requis: {rule.minNFTsRequired}");
+        
+        if (string.IsNullOrEmpty(currentWallet))
+        {
+            Debug.Log("[NFT-DEBUG] Pas de wallet connecté, bouton verrouillé");
+            UpdateButtonFromRule(rule, false);
+            yield break;
+        }
+        
+        int nftsOwned = 0;
+        
+        // Vérifier chaque contrat NFT de la règle
+        foreach (string contractAddress in rule.requiredNFTContracts)
+        {
+            if (string.IsNullOrEmpty(contractAddress)) 
+            {
+                Debug.Log("[NFT-DEBUG] Adresse contrat vide, ignorée");
+                continue;
+            }
+            
+            Debug.Log($"[NFT-DEBUG] Vérification contrat: {contractAddress}");
+            bool ownsThisNFT = false;
+            
+            // Vérifier ERC721
+            yield return StartCoroutine(CheckBalance721(contractAddress, currentWallet, result => {
+                ownsThisNFT = result;
+                Debug.Log($"[NFT-DEBUG] Résultat ERC721 pour {contractAddress}: {result}");
+            }));
+            
+            // Si pas d'ERC721, vérifier ERC1155
+            if (!ownsThisNFT)
+            {
+                Debug.Log($"[NFT-DEBUG] Pas d'ERC721, vérification ERC1155 pour {contractAddress}");
+                yield return StartCoroutine(CheckAnyTokenERC1155(contractAddress, currentWallet, result => {
+                    ownsThisNFT = result;
+                    Debug.Log($"[NFT-DEBUG] Résultat ERC1155 pour {contractAddress}: {result}");
+                }));
+            }
+            
+            if (ownsThisNFT)
+            {
+                Debug.Log($"[NFT-DEBUG] NFT trouvé pour contrat {contractAddress}");
+                nftsOwned++;
+            }
+            else
+            {
+                Debug.Log($"[NFT-DEBUG] Aucun NFT trouvé pour contrat {contractAddress}");
+            }
+        }
+        
+        // Débloquer le bouton si on a assez de NFTs
+        bool shouldUnlock = nftsOwned >= rule.minNFTsRequired;
+        Debug.Log($"[NFT-DEBUG] Bouton {rule.button.name}: {nftsOwned}/{rule.minNFTsRequired} NFTs trouvés, déverrouillage: {shouldUnlock}");
+        UpdateButtonFromRule(rule, shouldUnlock);
+    }
+    
+    private void UpdateButtonFromRule(ButtonUnlockRule rule, bool isUnlocked)
+    {
+        if (rule.button == null) return;
+            
+        rule.button.interactable = isUnlocked;
+        
+        UnityEngine.UI.Image buttonImage = rule.button.GetComponent<UnityEngine.UI.Image>();
+        if (buttonImage != null)
+        {
+            buttonImage.color = isUnlocked ? rule.unlockedColor : rule.lockedColor;
+        }
+        
+        // Gérer l'affichage du texte de verrouillage
+        if (rule.lockedText != null)
+        {
+            if (isUnlocked)
+            {
+                rule.lockedText.gameObject.SetActive(false);
+            }
+            else
+            {
+                rule.lockedText.text = rule.lockedMessage;
+                rule.lockedText.gameObject.SetActive(true);
+            }
+        }
+    }
+    
+    private void LockAllButtons()
+    {
+        foreach (var rule in buttonUnlockRules)
+        {
+            if (rule.button != null)
+            {
+                UpdateButtonFromRule(rule, false);
             }
         }
     }

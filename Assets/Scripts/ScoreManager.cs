@@ -100,12 +100,9 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
         else
         {            
-            // Pour les joueurs non-master, initialiser une valeur par défaut pour matchStartTime
-            // afin que le timer puisse fonctionner en attendant la synchronisation
-            matchStartTime = Time.time - 1; // Commencer à ROOM_LIFETIME - 1 seconde pour indiquer que le match est en cours
+            matchStartTime = Time.time - 1;
             
             StartCoroutine(MatchTimer());
-            Debug.Log("[SCORE] Client non-master attend la synchronisation des scores et du timer");
         }
     }
     
@@ -118,7 +115,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             LobbyUI.Instance.UpdateRoomStatus("Ongoing Match");
             
-            // Assurer que le timer est visible immédiatement pour tous
             if (waitingForSync)
             {
                 LobbyUI.Instance.UpdateTimer((int)timeLeft);
@@ -129,8 +125,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         
         while (timeLeft > 0 && !matchEnded)
         {
-            // Supprimer cette condition qui bloquait la mise à jour du timer
-            // pour les nouveaux joueurs dont le matchStartTime était 0
             timeLeft = ROOM_LIFETIME - (Time.time - matchStartTime);
             
             if (LobbyUI.Instance != null)
@@ -213,7 +207,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
         else
         {
-            Debug.LogError($"[ScoreManager] ERREUR: PhotonView non trouvé pour ViewID {victimViewID}. Impossible de démarrer le respawn.");
         }
     }
     
@@ -232,16 +225,13 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             var spawner = FindObjectOfType<PhotonTankSpawner>();
             if (spawner != null)
             {
-                spawner.SpawnTank();
-            }
-            else
-            {
-                Debug.LogError("[ScoreManager] PhotonTankSpawner introuvable! Impossible de respawn.");
-            }
-        }
+                spawner.SpawnTank();        }
         else
         {
-            Debug.Log($"[ScoreManager] Pas de respawn pour ce client car actorNumber={actorNumber} != {PhotonNetwork.LocalPlayer.ActorNumber}");
+        }
+    }
+        else
+        {
         }
     }
     
@@ -345,7 +335,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
         catch (System.Exception ex)
         {
-            Debug.LogWarning($"[SCORE] ⚠️ Erreur AppKit: {ex.Message}");
         }
         
         if (string.IsNullOrEmpty(walletAddress))
@@ -368,7 +357,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning($"[SCORE] ⚠️ Erreur PlayerSession: {ex.Message}");
             }
         }
         
@@ -405,9 +393,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         
         RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
         PhotonNetwork.RaiseEvent(SYNC_TIMER_EVENT, timeLeft, options, SendOptions.SendReliable);
-        
-        // Pour debug, afficher le temps envoyé
-        Debug.Log($"[SCORE] Master envoie le temps restant: {timeLeft} secondes");
     }
     
     public void OnEvent(EventData photonEvent)
@@ -461,9 +446,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             float timeRemaining = (float)photonEvent.CustomData;
             // Ajuster le temps de démarrage pour que le calcul donne le bon temps restant
             matchStartTime = Time.time - (ROOM_LIFETIME - timeRemaining);
-            
-            // Pour debug, vérifier le temps reçu
-            Debug.Log($"[SCORE] Client reçoit le temps restant: {timeRemaining} secondes");
             
             // Mettre à jour immédiatement le timer UI
             if (LobbyUI.Instance != null)

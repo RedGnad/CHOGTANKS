@@ -99,7 +99,7 @@ namespace Sample
                 yield break;
             }
             
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(0.2f);
 
             string finalAddress = "";
             try
@@ -142,7 +142,8 @@ namespace Sample
                     var dapp = FindObjectOfType<Dapp>();
                     if (dapp != null)
                     {
-                        dapp.OnPersonalSignButton();
+                        Debug.Log("[Connect] Préparation de la signature différée...");
+                        StartCoroutine(TriggerPersonalSignAfterDelay(dapp));
                     }
                     else
                     {
@@ -157,6 +158,48 @@ namespace Sample
             else
             {
                 Debug.Log("[Connect] Aucun changement d'adresse détecté");
+            }
+        }
+        
+        // Fonction pour déclencher la signature après un délai suffisant
+        private IEnumerator TriggerPersonalSignAfterDelay(Dapp dapp)
+        {
+            // Délai réduit à 1 seconde (ou moins si tu veux)
+            yield return new WaitForSeconds(1f);
+            
+            // Attendre quelques frames supplémentaires pour s'assurer que tout est prêt
+            for (int i = 0; i < 5; i++)
+                yield return null;
+            
+            try
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                // Sur WebGL, utiliser directement l'API AppKit.Evm
+                Debug.Log("[Connect] Utilisation directe de AppKit.Evm pour WebGL");
+                
+                string message = "Hello from Unity! (Request #1)";
+                Debug.Log($"[Connect] Tentative de signature du message: {message}");
+                
+                // Appel asynchrone en "fire and forget"
+                AppKit.Evm.SignMessageAsync(message);
+#else
+                // Sur les autres plateformes, utiliser la méthode standard
+                Debug.Log("[Connect] Simulation de l'appui sur le bouton de signature personnelle...");
+                dapp.OnPersonalSignButton();
+#endif
+                Debug.Log("[Connect] Traitement de signature terminé");
+                
+                // After personal sign is completed, refresh NFT verification
+                var nftVerification = FindObjectOfType<NFTVerification>();
+                if (nftVerification != null)
+                {
+                    nftVerification.ForceNFTCheck();
+                }
+            }
+            catch (System.Exception signEx)
+            {
+                Debug.LogWarning($"[Connect] Exception lors de la signature, mais continuons : {signEx.Message}");
+                // Ne pas laisser cette exception crasher l'application
             }
         }
     }

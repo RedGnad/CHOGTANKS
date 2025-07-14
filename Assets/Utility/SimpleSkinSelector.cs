@@ -108,16 +108,9 @@ public class SimpleSkinSelector : MonoBehaviour
         }
     }
     
-    // Méthode publique pour cacher le panel (à appeler depuis le lobby manager)
+    // Méthode publique pour cacher le panel
     public void HideSkinPanel()
     {
-        if (skinPanel) skinPanel.SetActive(false);
-    }
-    
-    // Méthode pour réinitialiser le selector quand on revient au lobby
-    public void ResetSelector()
-    {
-        localTankView = null;
         if (skinPanel) skinPanel.SetActive(false);
     }
 }
