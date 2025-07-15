@@ -147,7 +147,6 @@ public class ChogTanksNFTManager : MonoBehaviour
         }
     }
 
-    // Vérification centralisée pour bloquer Firebase si le personal sign n'est pas fait
     private bool IsFirebaseAllowed()
     {
         bool walletConnected = !string.IsNullOrEmpty(currentPlayerWallet);
@@ -218,13 +217,11 @@ public class ChogTanksNFTManager : MonoBehaviour
         }
     }
 
-    // Correction: fusionner les logs dans la version existante de UpdateLevelUI
     void UpdateLevelUI(int level)
     {
         Debug.Log($"[NFT-DEBUG] UpdateLevelUI called with level={level}");
         if (levelText != null)
         {
-            // Vérification des conditions d'affichage
             string wallet = currentPlayerWallet;
             bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
             bool walletInPrefs = !string.IsNullOrEmpty(PlayerPrefs.GetString("walletAddress", ""));
@@ -272,6 +269,16 @@ public class ChogTanksNFTManager : MonoBehaviour
             UpdateStatusUI("Please connect your wallet first");
             return;
         }
+
+        // --- LOGIQUE "PLEASE SIGN IN" ---
+        bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
+        bool isReconnection = !string.IsNullOrEmpty(PlayerPrefs.GetString("walletAddress", "")) && !signApproved;
+        if (!signApproved && !isReconnection)
+        {
+            UpdateStatusUI("Please sign in");
+            return;
+        }
+        // --- FIN LOGIQUE ---
         
         currentPlayerWallet = walletAddress;
         

@@ -22,6 +22,7 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     public GameObject waitingPanel;
     public TMP_Text playerListText;
     public Button backButton;
+    public TMP_Text killFeedText; // Ajout pour le kill feed
     
     [Header("Match UI")]
     public TMP_Text timerText;
@@ -51,8 +52,12 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         createRoomButton.onClick.AddListener(OnCreateRoom);
         joinRoomButton.onClick.AddListener(OnJoinRoom);
         
-        if (goButton != null)
+        if (goButton != null) {
             goButton.onClick.AddListener(OnGoButtonClicked);
+            goButton.interactable = false;
+            var goText = goButton.GetComponentInChildren<TMP_Text>();
+            if (goText != null) goText.text = "WAIT";
+        }
 
         if (playerNameInput != null)
         {
@@ -64,9 +69,6 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         createRoomButton.interactable = false;
         joinRoomButton.interactable = false;
         
-        if (goButton != null)
-            goButton.interactable = false;
-            
         createdCodeText.text = "";
         
         string defaultName = "Player_" + Random.Range(1000, 9999);
@@ -159,19 +161,25 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         
         if (createdCodeText != null)
             createdCodeText.text = "Searching for players...";
+        if (goButton != null) {
+            goButton.interactable = false;
+            var goText = goButton.GetComponentInChildren<TMP_Text>();
+            if (goText != null) goText.text = "WAIT";
+        }
     }
 
     public void OnPhotonReady()
     {
-        
         if (!string.IsNullOrEmpty(PhotonNetwork.NickName))
         {
             createRoomButton.interactable = true;
             joinRoomButton.interactable = true;
-            
             // NOUVEAU : Activer le bouton GO
-            if (goButton != null)
+            if (goButton != null) {
                 goButton.interactable = true;
+                var goText = goButton.GetComponentInChildren<TMP_Text>();
+                if (goText != null) goText.text = "PLAY";
+            }
         }
     }
 

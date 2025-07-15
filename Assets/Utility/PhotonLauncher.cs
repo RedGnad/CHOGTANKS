@@ -1,6 +1,8 @@
 using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
+using System.Linq; // Ajout pour manipuler les listes
+using System.Collections.Generic; // Ajout pour List<T>
 
 public class PhotonLauncher : MonoBehaviourPunCallbacks
 {
@@ -14,6 +16,8 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     
     private bool isWaitingForReconnection = false;
     private bool wasDisconnected = false;
+
+    private List<RoomInfo> cachedRoomList = new List<RoomInfo>();
 
     [PunRPC]
     public void RestartMatchSoftRPC()
@@ -328,42 +332,53 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public void JoinRandomPublicRoom()
     {
-        ExitGames.Client.Photon.Hashtable roomProps = new ExitGames.Client.Photon.Hashtable();
-        roomProps["isPublic"] = true;
-        
-        RoomOptions options = new RoomOptions 
-        { 
-            MaxPlayers = maxPlayers, 
-            IsVisible = true, 
-            IsOpen = true,
-            CustomRoomProperties = roomProps,
-            CustomRoomPropertiesForLobby = new string[] { "isPublic" }
+        string publicRoomName = "PublicRoom";
+        roomName = publicRoomName; // Synchronise le champ roomName avec la room publique
+        RoomOptions options = new RoomOptions
+        {
+            MaxPlayers = maxPlayers,
+            IsVisible = true,
+            IsOpen = true
         };
-        
-        PhotonNetwork.JoinRandomRoom(roomProps, maxPlayers);
+        PhotonNetwork.JoinOrCreateRoom(publicRoomName, options, TypedLobby.Default);
     }
 
-    public override void OnJoinRandomFailed(short returnCode, string message)
+    public override void OnRoomListUpdate(List<RoomInfo> roomList)
     {
-        CreatePublicRoom();
+        cachedRoomList = roomList;
     }
 
-    private void CreatePublicRoom()
+    public void JoinOrCreatePublicRoom()
     {
-        string roomName = "";
-        
-        ExitGames.Client.Photon.Hashtable roomProps = new ExitGames.Client.Photon.Hashtable();
-        roomProps["isPublic"] = true;
-        
-        RoomOptions options = new RoomOptions 
-        { 
-            MaxPlayers = maxPlayers, 
-            IsVisible = true, 
-            IsOpen = true,
-            CustomRoomProperties = roomProps,
-            CustomRoomPropertiesForLobby = new string[] { "isPublic" }
+        // Cherche la première room publique non pleine
+        int roomIndex = 1;
+        foreach (var room in cachedRoomList)
+        {
+            if (room.Name.StartsWith("PublicRoom") && room.PlayerCount < room.MaxPlayers && room.IsOpen && room.IsVisible)
+            {
+                roomName = room.Name;
+                PhotonNetwork.JoinRoom(room.Name);
+                return;
+            }
+            // Pour générer le prochain index
+            if (room.Name.StartsWith("PublicRoom"))
+            {
+                int idx;
+                if (int.TryParse(room.Name.Replace("PublicRoom", ""), out idx))
+                {
+                    roomIndex = Mathf.Max(roomIndex, idx + 1);
+                }
+            }
+        }
+        // Si aucune room publique dispo, crée la suivante
+        string newRoomName = $"PublicRoom{roomIndex}";
+        roomName = newRoomName;
+        RoomOptions options = new RoomOptions
+        {
+            MaxPlayers = maxPlayers,
+            IsVisible = true,
+            IsOpen = true
         };
-        
-        PhotonNetwork.CreateRoom(roomName, options);
+        PhotonNetwork.CreateRoom(newRoomName, options, TypedLobby.Default);
     }
 }

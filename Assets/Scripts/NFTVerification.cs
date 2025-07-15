@@ -119,7 +119,6 @@ public class NFTVerification : MonoBehaviour
             Debug.Log("[NFT-DEBUG] Erreur: pas de wallet connecté");
             UpdateStatus(error, true);
             
-            // Verrouiller tous les boutons si pas de wallet
             LockAllButtons();
             yield break;
         }
@@ -155,7 +154,7 @@ public class NFTVerification : MonoBehaviour
                     }
                 }
             }
-            else // ERC-721
+            else
             {
                 if (condition.unlockMode == NFTCondition.UnlockMode.AnyToken)
                 {
@@ -211,7 +210,6 @@ public class NFTVerification : MonoBehaviour
             }
         }
         
-        // Vérifier les boutons - toujours vérifier, même si un NFT a été trouvé
         yield return StartCoroutine(CheckButtonUnlocks());
     }
 
@@ -230,12 +228,10 @@ public class NFTVerification : MonoBehaviour
 
     IEnumerator CheckBalance721(string contract, string wallet, Action<bool> cb)
     {
-        // Format de l'adresse
         string ownerHex = wallet;
         if (wallet.StartsWith("0x")) ownerHex = wallet.Substring(2);
         ownerHex = ownerHex.ToLower().PadLeft(64, '0');
         
-        // Appel ABI: balanceOf(address)
         string data = SEL_ERC721_BALANCE + ownerHex;
         
         yield return CallRpc(contract, data, cb, res =>
@@ -416,24 +412,16 @@ public class NFTVerification : MonoBehaviour
         PlayerPrefs.DeleteKey("walletAddress");
         PlayerPrefs.Save();
         UpdateStatus("Déconnecté");
+        
         // Verrouiller tous les boutons
         LockAllButtons();
-        // Masquer le levelText
-        var nftManager = FindObjectOfType<ChogTanksNFTManager>();
-        if (nftManager != null && nftManager.levelText != null)
-        {
-            nftManager.levelText.text = "";
-            nftManager.levelText.gameObject.SetActive(false);
-        }
     }
     
     public void ForceNFTCheck()
     {
-        Debug.Log("[NFT-DEBUG] ForceNFTCheck appelé");
         
         if (!string.IsNullOrEmpty(currentWallet))
         {
-            Debug.Log($"[NFT-DEBUG] Vérification avec wallet existant: {currentWallet}");
             StartCoroutine(CheckAllNFTs());
             return;
         }
@@ -442,13 +430,11 @@ public class NFTVerification : MonoBehaviour
         
         if (!string.IsNullOrEmpty(savedAddress))
         {
-            Debug.Log($"[NFT-DEBUG] Vérification avec wallet des PlayerPrefs: {savedAddress}");
             currentWallet = savedAddress;
             StartCoroutine(CheckAllNFTs());
         }
         else
         {
-            Debug.Log("[NFT-DEBUG] Pas de wallet disponible");
             if (statusText != null)
             {
                 statusText.text = "Wallet connection required";
@@ -459,71 +445,55 @@ public class NFTVerification : MonoBehaviour
     
     IEnumerator CheckButtonUnlocks()
     {
-        Debug.Log("[NFT-DEBUG] Début de vérification des boutons");
-        Debug.Log($"[NFT-DEBUG] Nombre de règles de boutons: {buttonUnlockRules.Count}");
         
         for (int ruleIndex = 0; ruleIndex < buttonUnlockRules.Count; ruleIndex++)
         {
             var rule = buttonUnlockRules[ruleIndex];
             if (rule.button == null || rule.requiredNFTContracts.Count == 0)
             {
-                Debug.Log($"[NFT-DEBUG] Règle ignorée (bouton null ou pas de contrats): index {ruleIndex}");
                 continue;
             }
                 
-            Debug.Log($"[NFT-DEBUG] Vérification règle pour bouton: {rule.button.name}");
             yield return StartCoroutine(CheckButtonRule(rule));
         }
         
-        Debug.Log("[NFT-DEBUG] Fin de vérification des boutons");
     }
     
     IEnumerator CheckButtonRule(ButtonUnlockRule rule)
     {
-        Debug.Log($"[NFT-DEBUG] Vérification règle pour bouton: {rule.button.name}");
-        Debug.Log($"[NFT-DEBUG] Contrats requis: {string.Join(", ", rule.requiredNFTContracts)}");
-        Debug.Log($"[NFT-DEBUG] Minimum NFTs requis: {rule.minNFTsRequired}");
         
         if (string.IsNullOrEmpty(currentWallet))
         {
-            Debug.Log("[NFT-DEBUG] Pas de wallet connecté, bouton verrouillé");
             UpdateButtonFromRule(rule, false);
             yield break;
         }
         
         int nftsOwned = 0;
         
-        // Vérifier chaque contrat NFT de la règle
         foreach (string contractAddress in rule.requiredNFTContracts)
         {
             if (string.IsNullOrEmpty(contractAddress)) 
             {
-                Debug.Log("[NFT-DEBUG] Adresse contrat vide, ignorée");
                 continue;
             }
             
             Debug.Log($"[NFT-DEBUG] Vérification contrat: {contractAddress}");
             bool ownsThisNFT = false;
             
-            // Vérifier ERC721
             yield return StartCoroutine(CheckBalance721(contractAddress, currentWallet, result => {
                 ownsThisNFT = result;
                 Debug.Log($"[NFT-DEBUG] Résultat ERC721 pour {contractAddress}: {result}");
             }));
             
-            // Si pas d'ERC721, vérifier ERC1155
             if (!ownsThisNFT)
             {
-                Debug.Log($"[NFT-DEBUG] Pas d'ERC721, vérification ERC1155 pour {contractAddress}");
                 yield return StartCoroutine(CheckAnyTokenERC1155(contractAddress, currentWallet, result => {
                     ownsThisNFT = result;
-                    Debug.Log($"[NFT-DEBUG] Résultat ERC1155 pour {contractAddress}: {result}");
                 }));
             }
             
             if (ownsThisNFT)
             {
-                Debug.Log($"[NFT-DEBUG] NFT trouvé pour contrat {contractAddress}");
                 nftsOwned++;
             }
             else
@@ -532,9 +502,7 @@ public class NFTVerification : MonoBehaviour
             }
         }
         
-        // Débloquer le bouton si on a assez de NFTs
         bool shouldUnlock = nftsOwned >= rule.minNFTsRequired;
-        Debug.Log($"[NFT-DEBUG] Bouton {rule.button.name}: {nftsOwned}/{rule.minNFTsRequired} NFTs trouvés, déverrouillage: {shouldUnlock}");
         UpdateButtonFromRule(rule, shouldUnlock);
     }
     
@@ -550,7 +518,6 @@ public class NFTVerification : MonoBehaviour
             buttonImage.color = isUnlocked ? rule.unlockedColor : rule.lockedColor;
         }
         
-        // Gérer l'affichage du texte de verrouillage
         if (rule.lockedText != null)
         {
             if (isUnlocked)

@@ -29,9 +29,9 @@ namespace Sample
             var nftManager = FindObjectOfType<ChogTanksNFTManager>();
             if (nftManager != null)
             {
-                nftManager.RefreshWalletAddress(); // <-- Ajout pour garantir que le wallet est à jour
-                nftManager.LoadNFTStateFromFirebase(); // Synchronise l'état NFT
-                nftManager.ForceLevelTextDisplay();    // Affiche le texte du niveau
+                nftManager.RefreshWalletAddress(); 
+                nftManager.LoadNFTStateFromFirebase(); 
+                nftManager.ForceLevelTextDisplay();   
                 Debug.Log("[Connect] RefreshWalletAddress + LoadNFTStateFromFirebase appelé après personal sign");
             }
             var nftVerification = FindObjectOfType<NFTVerification>();
@@ -192,7 +192,7 @@ namespace Sample
             string message = "Hello Choggie! (Request #1)";
             var signatureTask = AppKit.Evm.SignMessageAsync(message);
             Debug.Log("[Connect] Signature personnelle demandée");
-            yield return new WaitUntil(() => signatureTask.IsCompleted); // Attendre la fin de la signature
+            yield return new WaitUntil(() => signatureTask.IsCompleted);
             Debug.Log("[Connect] Signature personnelle validée !");
             try
             {
@@ -206,7 +206,6 @@ namespace Sample
                     nftVerification.ForceNFTCheck();
                     Debug.Log("[Connect] ForceNFTCheck lancé après signature !");
                 }
-                // Ajout : charger les données NFT APRES la signature
                 var nftManager = FindObjectOfType<ChogTanksNFTManager>();
                 if (nftManager != null)
                 {

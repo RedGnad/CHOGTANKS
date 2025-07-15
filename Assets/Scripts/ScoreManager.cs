@@ -5,6 +5,7 @@ using UnityEngine;
 using ExitGames.Client.Photon;
 using System.Collections;
 using System.Runtime.InteropServices;
+using TMPro;
 
 public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
 {
@@ -196,6 +197,15 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         if (killerActorNumber > 0 && killerActorNumber != victimActorNumber)
         {
             AddKill(killerActorNumber);
+
+            // --- AJOUT NOTIFICATION KILL ---
+            string killerName = GetPlayerName(killerActorNumber);
+            string victimName = GetPlayerName(victimActorNumber);
+            if (LobbyUI.Instance != null && LobbyUI.Instance.killFeedText != null)
+            {
+                LobbyUI.Instance.killFeedText.text = $"{killerName} a tué {victimName} !";
+                LobbyUI.Instance.StartCoroutine(HideKillFeedAfterDelay(3f));
+            }
         }
 
         PhotonView victimView = PhotonView.Find(victimViewID);
@@ -208,6 +218,23 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         else
         {
         }
+    }
+
+    private string GetPlayerName(int actorNumber)
+    {
+        foreach (var player in PhotonNetwork.PlayerList)
+        {
+            if (player.ActorNumber == actorNumber)
+                return string.IsNullOrEmpty(player.NickName) ? $"Player {actorNumber}" : player.NickName;
+        }
+        return $"Player {actorNumber}";
+    }
+
+    private IEnumerator HideKillFeedAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (LobbyUI.Instance != null && LobbyUI.Instance.killFeedText != null)
+            LobbyUI.Instance.killFeedText.text = "";
     }
     
     private IEnumerator RespawnPlayer(int actorNumber)

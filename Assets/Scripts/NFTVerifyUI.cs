@@ -21,7 +21,6 @@ public class NFTVerifyUI : MonoBehaviour
         {
             nameInputPanel.SetActive(false); 
         }
-        // S'abonner à l'événement de signature
         var connect = FindObjectOfType<ConnectWalletButton>();
         if (connect != null)
             connect.OnPersonalSignCompleted += OnPersonalSignApproved;
@@ -33,18 +32,12 @@ public class NFTVerifyUI : MonoBehaviour
     private void OnPersonalSignApproved()
     {
         if (nameInputPanel != null)
-            nameInputPanel.SetActive(true); // Afficher le panel après la signature
+            nameInputPanel.SetActive(true);
     }
     
     private void CheckWalletAndUpdateUI()
     {
         bool isWalletConnected = IsWalletConnected();
-        // Ne pas afficher le panel ici
-        // if (nameInputPanel != null)
-        // {
-        //     nameInputPanel.SetActive(isWalletConnected);
-        // }
-        // Si wallet déconnecté, verrouiller les boutons et masquer le panel
         if (!isWalletConnected && nftVerification != null)
         {
             nftVerification.DisconnectWallet();
@@ -156,7 +149,7 @@ public class NFTVerifyUI : MonoBehaviour
         
         if (nftVerification == null)
         {
-            Debug.LogError("[NFT-DEBUG] ERREUR: NFTVerification non trouvé!");
+            Debug.LogError("[NFT-DEBUG] ERREUR: NFTVerification not found!");
             if (statusText != null)
             {
                 ShowStatus("Erreur: Référence manquante", true);
@@ -174,10 +167,9 @@ public class NFTVerifyUI : MonoBehaviour
             return;
         }
 
-        ShowStatus("Vérification en cours...");
+        ShowStatus("loading...");
         
         string wallet = PlayerPrefs.GetString("walletAddress", "");
-        Debug.Log($"[NFT-DEBUG] Démarrage vérification NFT pour wallet: {wallet}");
         
     }
     
