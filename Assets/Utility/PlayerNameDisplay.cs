@@ -58,7 +58,7 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
                     int nftLevel = nftManager.currentNFTState.level;
                     if (nftLevel > 0)
                     {
-                        playerName += $" lvl {nftLevel}";
+                        playerName += $" lvl  {nftLevel}";
                     }
                 }
             }
