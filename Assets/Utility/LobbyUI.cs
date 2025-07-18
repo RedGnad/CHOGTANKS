@@ -15,14 +15,14 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     public TMP_Text waitingForPlayerText;
     public Button createRoomButton;
     public Button joinRoomButton;
-    public Button goButton; // NOUVEAU BOUTON
+    public Button goButton; 
     public TMP_InputField joinCodeInput;
     public TMP_Text createdCodeText;
     public GameObject joinPanel;
     public GameObject waitingPanel;
     public TMP_Text playerListText;
     public Button backButton;
-    public TMP_Text killFeedText; // Ajout pour le kill feed
+    public TMP_Text killFeedText; 
     
     [Header("Match UI")]
     public TMP_Text timerText;

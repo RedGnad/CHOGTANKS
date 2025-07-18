@@ -8,9 +8,8 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
     [SerializeField] private TextMeshProUGUI gameOverText;
     [SerializeField] private TextMeshProUGUI winText;
     [SerializeField] private TextMeshProUGUI winnerText;
-    [SerializeField] private TextMeshProUGUI countdownText; // Nouveau texte pour le compte à rebours
+    [SerializeField] private TextMeshProUGUI countdownText; 
     
-    // Alternative si le glisser-déposer ne fonctionne pas
     public void SetCountdownText(TextMeshProUGUI text)
     {
         countdownText = text;
@@ -55,19 +54,16 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
             winnerText.text = $"{winnerName} Wins!";
         }
         
-        // Toujours lancer la coroutine pour le compte à rebours, même si winnerText est null
         StartCoroutine(CountdownAndReturnToLobby(6));
     }
     
     private IEnumerator CountdownAndReturnToLobby(int seconds)
     {
-        // Activer le texte du compte à rebours s'il existe
         if (countdownText != null)
         {
             countdownText.gameObject.SetActive(true);
         }
         
-        // Faire le compte à rebours
         for (int i = seconds; i > 0; i--)
         {
             if (countdownText != null)
@@ -78,28 +74,22 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
             yield return new WaitForSeconds(1.0f);
         }
         
-        // Dernière seconde
         if (countdownText != null)
         {
             countdownText.text = "Returning to lobby...";
         }
         
-        // Revenir au lobby en quittant la room et en chargeant la scène du lobby
         if (PhotonNetwork.IsConnected && PhotonNetwork.InRoom)
         {
             Debug.Log("Automatic return to lobby");
-            // On stocke le nom de la scène de lobby à charger après avoir quitté la room
             string lobbySceneName = "LobbyScene";
             
-            // On s'abonne à l'événement de sortie de room pour charger la scène ensuite
             PhotonNetwork.AddCallbackTarget(new LobbySceneLoader(lobbySceneName));
             
-            // On quitte la room (ce qui déclenchera OnLeftRoom)
             PhotonNetwork.LeaveRoom();
         }
     }
     
-    // Classe auxiliaire pour gérer le chargement de la scène après avoir quitté la room
     private class LobbySceneLoader : MonoBehaviourPunCallbacks
     {
         private string _lobbySceneName;
@@ -111,10 +101,8 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
         
         public override void OnLeftRoom()
         {
-            // On charge la scène du lobby quand la room est quittée
             UnityEngine.SceneManagement.SceneManager.LoadScene(_lobbySceneName);
             
-            // On se désabonne après utilisation
             PhotonNetwork.RemoveCallbackTarget(this);
         }
     }

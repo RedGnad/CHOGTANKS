@@ -8,12 +8,11 @@ using Photon.Realtime;
 public class KillNotificationManager : MonoBehaviourPunCallbacks
 {
     [SerializeField] private TextMeshProUGUI killNotificationText;
-    [SerializeField] private float notificationDuration = 3f; // Durée d'affichage de la notification
+    [SerializeField] private float notificationDuration = 3f; 
     
     private static KillNotificationManager _instance;
     public static KillNotificationManager Instance => _instance;
     
-    // Queue pour gérer plusieurs messages de kill qui arriveraient en même temps
     private Queue<string> notificationQueue = new Queue<string>();
     private bool isShowingNotification = false;
     
@@ -28,13 +27,11 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
         _instance = this;
         DontDestroyOnLoad(this.gameObject);
         
-        // Cacher le texte au démarrage
         if (killNotificationText != null)
         {
             killNotificationText.gameObject.SetActive(false);
         }
         
-        // Vérifier que le PhotonView est configuré
         if (photonView == null)
         {
             Debug.LogError("[KILL] Pas de PhotonView attaché au KillNotificationManager. Ajoutez un PhotonView à ce GameObject.");
@@ -46,22 +43,15 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
         Debug.Log("[KILL] KillNotificationManager initialized. PhotonView ID: " + (photonView != null ? photonView.ViewID.ToString() : "null"));
     }
     
-    // Cette méthode sert à configurer le text depuis l'inspecteur si le drag & drop ne fonctionne pas
     public void SetKillNotificationText(TextMeshProUGUI text)
     {
         killNotificationText = text;
     }
     
-    /// <summary>
-    /// Affiche une notification de kill à tous les joueurs
-    /// </summary>
-    /// <param name="killerActorNumber">L'ActorNumber du tueur</param>
-    /// <param name="killedActorNumber">L'ActorNumber du joueur tué</param>
     public void ShowKillNotification(int killerActorNumber, int killedActorNumber)
     {
         if (photonView.IsMine)
         {
-            // Si je suis le MasterClient, j'envoie l'information à tous
             if (PhotonNetwork.IsMasterClient)
             {
                 photonView.RPC("ShowKillNotificationRPC", RpcTarget.All, killerActorNumber, killedActorNumber);
@@ -75,7 +65,6 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
         string killerName = "Unknown";
         string killedName = "Unknown";
         
-        // Récupérer les noms des joueurs impliqués
         foreach (Player player in PhotonNetwork.PlayerList)
         {
             if (player.ActorNumber == killerActorNumber)
@@ -89,9 +78,7 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
         }
         
         string notificationText = $"{killerName} shot {killedName}";
-        Debug.Log($"[KILL] {notificationText}");
         
-        // Ajouter à la queue et afficher si possible
         notificationQueue.Enqueue(notificationText);
         if (!isShowingNotification)
         {
@@ -107,21 +94,18 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
         {
             string currentNotification = notificationQueue.Dequeue();
             
-            // Afficher le message
             if (killNotificationText != null)
             {
                 killNotificationText.gameObject.SetActive(true);
                 killNotificationText.text = currentNotification;
                 
-                // Attendre la durée définie
                 yield return new WaitForSeconds(notificationDuration);
                 
                 killNotificationText.gameObject.SetActive(false);
-                yield return new WaitForSeconds(0.5f); // Petite pause entre les notifications
+                yield return new WaitForSeconds(0.5f); 
             }
             else
             {
-                Debug.LogWarning("[KILL] killNotificationText est null");
                 yield break;
             }
         }

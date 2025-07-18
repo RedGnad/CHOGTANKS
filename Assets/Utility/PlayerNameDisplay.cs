@@ -21,7 +21,6 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     
     private void Start()
     {
-        // Initialiser l'affichage du nom
         SetPlayerName();
         
         if (nameCanvas != null)
@@ -44,14 +43,12 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
         
         UpdateTextPosition();
         
-        // S'abonner aux mises à jour des propriétés des joueurs
         if (!isSubscribedToPlayerProps)
         {
             PhotonNetwork.NetworkingClient.EventReceived += OnPhotonEvent;
             isSubscribedToPlayerProps = true;
         }
         
-        // Rafraichir périodiquement les noms pour capter les mises à jour de niveau
         StartCoroutine(RefreshPlayerNamePeriodically());
     }
 
@@ -65,7 +62,6 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
                 playerName = $"Player {photonView.Owner.ActorNumber}";
             }
 
-            // Pour le joueur local, on récupère son niveau et on le synchronise via CustomProperties
             if (photonView.IsMine)
             {
                 var nftManager = FindObjectOfType<ChogTanksNFTManager>();
@@ -73,21 +69,18 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
                 {
                     int nftLevel = nftManager.currentNFTState.level;
                     
-                    // Synchronisation du niveau via les propriétés customisées du joueur Photon
                     ExitGames.Client.Photon.Hashtable playerProps = new ExitGames.Client.Photon.Hashtable();
                     playerProps["level"] = nftLevel;
                     PhotonNetwork.LocalPlayer.SetCustomProperties(playerProps);
                 }
             }
 
-            // Pour tous les joueurs, on récupère le niveau depuis les CustomProperties
             int playerLevel = 0;
             if (photonView.Owner.CustomProperties.ContainsKey("level"))
             {
                 playerLevel = (int)photonView.Owner.CustomProperties["level"];
             }
             
-            // Affichage du niveau pour tous les joueurs s'il est disponible
             if (playerLevel > 0)
             {
                 playerName += $" lvl {playerLevel}";
@@ -124,12 +117,10 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
         }
     }
     
-    // Mettre à jour l'affichage lorsque les propriétés du joueur changent
     public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
     {
         if (photonView.Owner != null && targetPlayer.ActorNumber == photonView.Owner.ActorNumber)
         {
-            // Mettre à jour le nom si les propriétés du joueur associé à ce photonView ont changé
             if (changedProps.ContainsKey("level"))
             {
                 SetPlayerName();
@@ -137,11 +128,8 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
         }
     }
     
-    // Pour gérer les mises à jour d'événements réseau
     private void OnPhotonEvent(ExitGames.Client.Photon.EventData photonEvent)
     {
-        // Rafraîchir l'affichage quand il y a des mises à jour de propriétés (code 226)
-        // 226 est le code standard Photon pour PropertyChanged
         if (photonEvent.Code == 226)
         {
             SetPlayerName();
@@ -152,14 +140,13 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     {
         while (true)
         {
-            yield return new WaitForSeconds(5f); // Rafraîchir toutes les 5 secondes
+            yield return new WaitForSeconds(5f); 
             SetPlayerName();
         }
     }
     
     void OnDestroy()
     {
-        // Se désabonner lors de la destruction de l'objet
         if (isSubscribedToPlayerProps)
         {
             PhotonNetwork.NetworkingClient.EventReceived -= OnPhotonEvent;

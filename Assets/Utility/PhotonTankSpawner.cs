@@ -20,7 +20,6 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         }
     }
 
-    // Dictionnaire pour stocker le dernier point de spawn utilisé par chaque joueur
     private static System.Collections.Generic.Dictionary<int, int> lastSpawnPointByPlayer = 
         new System.Collections.Generic.Dictionary<int, int>();
     
@@ -32,31 +31,25 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
             int actorNumber = PhotonNetwork.LocalPlayer.ActorNumber;
             int spawnIdx = 0;
             
-            // Si plusieurs points de spawn sont disponibles, on utilise une logique aléatoire
             if (spawnPoints.Length > 1)
             {
-                // Générer un index aléatoire
                 spawnIdx = UnityEngine.Random.Range(0, spawnPoints.Length);
                 
-                // Vérifier si le joueur a déjà utilisé un point de spawn précédemment
                 if (lastSpawnPointByPlayer.ContainsKey(actorNumber))
                 {
                     int previousIdx = lastSpawnPointByPlayer[actorNumber];
                     
-                    // Éviter de réutiliser le même point de spawn consécutivement
                     while (spawnIdx == previousIdx && spawnPoints.Length > 1)
                     {
                         spawnIdx = UnityEngine.Random.Range(0, spawnPoints.Length);
                     }
                 }
                 
-                // Sauvegarder le point de spawn utilisé pour ce joueur
                 lastSpawnPointByPlayer[actorNumber] = spawnIdx;
             }
             
             spawnPos = spawnPoints[spawnIdx].position;
             
-            // Ajouter une légère variation dans la position pour éviter les collisions
             float offsetX = UnityEngine.Random.Range(-0.5f, 0.5f);
             float offsetY = UnityEngine.Random.Range(-0.5f, 0.5f);
             spawnPos += new Vector2(offsetX, offsetY);

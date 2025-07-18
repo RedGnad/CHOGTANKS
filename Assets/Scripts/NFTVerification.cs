@@ -461,7 +461,7 @@ public class NFTVerification : MonoBehaviour
     
     IEnumerator CheckButtonRule(ButtonUnlockRule rule)
     {
-        
+        // Si pas de wallet connecté, on désactive le bouton et on affiche "Connect Wallet"
         if (string.IsNullOrEmpty(currentWallet))
         {
             UpdateButtonFromRule(rule, false);
@@ -526,7 +526,15 @@ public class NFTVerification : MonoBehaviour
             }
             else
             {
-                rule.lockedText.text = rule.lockedMessage;
+                // Afficher "Connect Wallet" si pas de wallet connecté, sinon message personnalisé
+                if (string.IsNullOrEmpty(currentWallet))
+                {
+                    rule.lockedText.text = "Connect Wallet";
+                }
+                else
+                {
+                    rule.lockedText.text = rule.lockedMessage;
+                }
                 rule.lockedText.gameObject.SetActive(true);
             }
         }
