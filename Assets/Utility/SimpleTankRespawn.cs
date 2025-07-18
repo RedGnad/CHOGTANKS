@@ -167,6 +167,17 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             {
                 Debug.LogError("[TANK] ScoreManager.Instance est null, impossible d'attribuer le kill");
             }
+            
+            // Notification de kill pour tous les joueurs
+            KillNotificationManager killManager = KillNotificationManager.Instance;
+            if (killManager != null)
+            {
+                killManager.ShowKillNotification(killerActorNumber, photonView.Owner.ActorNumber);
+            }
+            else
+            {
+                Debug.LogWarning("[TANK] KillNotificationManager.Instance est null, impossible d'afficher la notification de kill");
+            }
         }
 
         if (photonView.IsMine)

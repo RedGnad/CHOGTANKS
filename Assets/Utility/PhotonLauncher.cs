@@ -3,6 +3,8 @@ using Photon.Realtime;
 using UnityEngine;
 using System.Linq; // Ajout pour manipuler les listes
 using System.Collections.Generic; // Ajout pour List<T>
+using System.Collections;
+using TMPro;
 
 public class PhotonLauncher : MonoBehaviourPunCallbacks
 {
@@ -13,9 +15,14 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     [SerializeField] private float autoReconnectDelay = 2f;
     [SerializeField] private string lobbySceneName = "LobbyScene";
     [SerializeField] private GameObject reconnectionNotificationPrefab;
+    [SerializeField] private int maxReconnectAttempts = 3;
+    [SerializeField] private float timeBetweenReconnectAttempts = 2f;
     
     private bool isWaitingForReconnection = false;
     private bool wasDisconnected = false;
+    private int currentReconnectAttempt = 0;
+    private string lastRoomName = "";
+    private bool wasInRoom = false;
 
     private List<RoomInfo> cachedRoomList = new List<RoomInfo>();
 
@@ -57,65 +64,40 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     [PunRPC]
     public void ShowWinnerToAllRPC(string winnerName, int winnerActorNumber)
     {
-        
+        // Solution simple : juste un log et retour automatique au lobby
         bool isWinner = PhotonNetwork.LocalPlayer.ActorNumber == winnerActorNumber;
         
-        GameObject prefabToUse = gameOverUIPrefab;
-        if (prefabToUse == null)
+        if (isWinner)
         {
-            var tankHealth = FindObjectOfType<TankHealth2D>();
-            if (tankHealth != null)
-            {
-                var field = typeof(TankHealth2D).GetField("gameOverUIPrefab", 
-                    System.Reflection.BindingFlags.NonPublic | 
-                    System.Reflection.BindingFlags.Instance);
-                if (field != null)
-                {
-                    prefabToUse = field.GetValue(tankHealth) as GameObject;
-                }
-            }
+            Debug.Log($"You Win, {winnerName}!");
+        }
+        else
+        {
+            Debug.Log($"{winnerName} Wins!");
         }
         
-        Camera mainCam = Camera.main;
-        if (mainCam != null && prefabToUse != null)
-        {
-            GameObject uiInstance = Instantiate(prefabToUse, mainCam.transform);
-            RectTransform rt = uiInstance.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                rt.localPosition = new Vector3(0f, 0f, 1f);
-                rt.localRotation = Quaternion.identity;
-                float baseScale = 1f;
-                float dist = Vector3.Distance(mainCam.transform.position, rt.position);
-                float scaleFactor = baseScale * (dist / mainCam.orthographicSize) * 0.1f;
-                rt.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
-            }
-            
-            var controller = uiInstance.GetComponent<GameOverUIController>();
-            if (controller != null)
-            {
-                if (isWinner)
-                {
-                    controller.ShowWin(winnerName);
-                }
-                else
-                {
-                    controller.ShowWinner(winnerName);
-                }
-            }
-            
-            StartCoroutine(AutoDestroyAndRestart(uiInstance));
-        }
+        // Retour automatique au lobby après 6 secondes
+        StartCoroutine(AutoReturnToLobby());
     }
 
-    private System.Collections.IEnumerator AutoDestroyAndRestart(GameObject uiInstance)
+    private System.Collections.IEnumerator AutoReturnToLobby()
     {
-        yield return new WaitForSeconds(3f);
-        if (uiInstance != null)
+        // Attendre 6 secondes
+        yield return new WaitForSeconds(6.0f);
+        
+        // Quitter la room si on y est encore
+        if (PhotonNetwork.IsConnected && PhotonNetwork.InRoom)
         {
-            Destroy(uiInstance);
+            Debug.Log("Auto return to lobby - leaving room");
+            PhotonNetwork.LeaveRoom();
         }
-        CallRestartMatchSoft();
+        
+        // Réinitialiser l'UI du lobby
+        LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
+        if (lobbyUI != null)
+        {
+            lobbyUI.OnBackToLobby();
+        }
     }
 
     public static void CallRestartMatchSoft()
@@ -247,13 +229,22 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public override void OnDisconnected(DisconnectCause cause)
     {
-        
         wasDisconnected = true;
         isConnectedAndReady = false;
         
+        // Sauvegarder l'état de connexion actuel avant la déconnexion
+        wasInRoom = PhotonNetwork.InRoom;
+        if (wasInRoom && PhotonNetwork.CurrentRoom != null)
+        {
+            lastRoomName = PhotonNetwork.CurrentRoom.Name;
+        }
+        
         ShowReconnectionNotification();
         
-        StartCoroutine(ReturnToLobby());
+        // Au lieu de retourner au lobby directement, tenter de se reconnecter
+        currentReconnectAttempt = 0;
+        StopAllCoroutines(); // Arrêter les anciennes tentatives
+        StartCoroutine(AttemptReconnect());
     }
     
     private void ShowReconnectionNotification()
@@ -269,6 +260,113 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
     }
     
+    private IEnumerator AttemptReconnect()
+    {
+        Debug.Log("[PHOTON] Tentative de reconnexion automatique...");
+        
+        while (currentReconnectAttempt < maxReconnectAttempts)
+        {
+            currentReconnectAttempt++;
+            Debug.Log($"[PHOTON] Tentative de reconnexion {currentReconnectAttempt}/{maxReconnectAttempts}");
+            
+            // Afficher notification de tentative de reconnexion
+            if (reconnectionNotificationPrefab != null)
+            {
+                GameObject notif = Instantiate(reconnectionNotificationPrefab);
+                TextMeshProUGUI textComponent = notif.GetComponentInChildren<TextMeshProUGUI>();
+                if (textComponent != null)
+                {
+                    textComponent.text = $"Tentative de reconnexion {currentReconnectAttempt}/{maxReconnectAttempts}...";
+                }
+                Destroy(notif, timeBetweenReconnectAttempts);
+            }
+            
+            // Se reconnecter si déconnecté
+            if (!PhotonNetwork.IsConnected)
+            {
+                PhotonNetwork.ConnectUsingSettings();
+            }
+            
+            // Attendre que la connexion s'établisse
+            float timeWaited = 0f;
+            while (!PhotonNetwork.IsConnected && timeWaited < timeBetweenReconnectAttempts)
+            {
+                timeWaited += 0.2f;
+                yield return new WaitForSeconds(0.2f);
+            }
+            
+            // Si nous sommes reconnectés avec succès
+            if (PhotonNetwork.IsConnected)
+            {
+                Debug.Log("[PHOTON] Reconnecté au serveur Photon avec succès!");
+                
+                // Si nous étions dans une room, essayer de la rejoindre
+                if (wasInRoom && !string.IsNullOrEmpty(lastRoomName))
+                {
+                    yield return new WaitForSeconds(1f); // Attendre que la connexion soit stable
+                    Debug.Log($"[PHOTON] Tentative de rejoindre la room précédente: {lastRoomName}");
+                    
+                    PhotonNetwork.JoinRoom(lastRoomName);
+                    
+                    // Attendre de voir si nous avons rejoint la room
+                    yield return new WaitForSeconds(2f);
+                    
+                    if (PhotonNetwork.InRoom)
+                    {
+                        Debug.Log("[PHOTON] Room rejointe avec succès!");
+                        // Réinitialiser les variables
+                        wasDisconnected = false;
+                        isWaitingForReconnection = false;
+                        currentReconnectAttempt = 0;
+                        
+                        // Afficher notification de succès
+                        if (reconnectionNotificationPrefab != null)
+                        {
+                            GameObject notif = Instantiate(reconnectionNotificationPrefab);
+                            TextMeshProUGUI textComponent = notif.GetComponentInChildren<TextMeshProUGUI>();
+                            if (textComponent != null)
+                            {
+                                textComponent.text = "Reconnecté avec succès!";
+                            }
+                            Destroy(notif, 3f);
+                        }
+                        
+                        yield break; // Sortir de la coroutine
+                    }
+                }
+                else
+                {
+                    // Nous n'étions pas dans une room, donc c'est déjà un succès
+                    Debug.Log("[PHOTON] Reconnecté au lobby avec succès!");
+                    wasDisconnected = false;
+                    isWaitingForReconnection = false;
+                    currentReconnectAttempt = 0;
+                    
+                    // Afficher notification de succès
+                    if (reconnectionNotificationPrefab != null)
+                    {
+                        GameObject notif = Instantiate(reconnectionNotificationPrefab);
+                        TextMeshProUGUI textComponent = notif.GetComponentInChildren<TextMeshProUGUI>();
+                        if (textComponent != null)
+                        {
+                            textComponent.text = "Reconnecté au lobby avec succès!";
+                        }
+                        Destroy(notif, 3f);
+                    }
+                    
+                    yield break;
+                }
+            }
+            
+            // Attendre avant la prochaine tentative
+            yield return new WaitForSeconds(timeBetweenReconnectAttempts);
+        }
+        
+        // Échec après plusieurs tentatives, retourner au lobby
+        Debug.LogWarning("[PHOTON] Toutes les tentatives de reconnexion ont échoué, retour au lobby");
+        StartCoroutine(ReturnToLobby());
+    }
+    
     private System.Collections.IEnumerator ReturnToLobby()
     {
         yield return new WaitForSeconds(autoReconnectDelay);
@@ -276,6 +374,18 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         if (PhotonNetwork.IsConnected)
         {
             PhotonNetwork.Disconnect();
+        }
+        
+        // Afficher notification de retour au lobby
+        if (reconnectionNotificationPrefab != null)
+        {
+            GameObject notif = Instantiate(reconnectionNotificationPrefab);
+            TextMeshProUGUI textComponent = notif.GetComponentInChildren<TextMeshProUGUI>();
+            if (textComponent != null)
+            {
+                textComponent.text = "Retour au lobby...";
+            }
+            Destroy(notif, 3f);
         }
         
         UnityEngine.SceneManagement.SceneManager.LoadScene(lobbySceneName);
@@ -334,6 +444,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     {
         string publicRoomName = "PublicRoom";
         roomName = publicRoomName; // Synchronise le champ roomName avec la room publique
+        Debug.Log("[LOBBYUI] Tentative de rejoindre la room publique fixe: " + publicRoomName);
         RoomOptions options = new RoomOptions
         {
             MaxPlayers = maxPlayers,
@@ -348,37 +459,11 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         cachedRoomList = roomList;
     }
 
+    // MÉTHODE OBSOLÈTE - Utiliser JoinRandomPublicRoom à la place
+    // Cette méthode est conservée pour compatibilité mais redirige vers JoinRandomPublicRoom
     public void JoinOrCreatePublicRoom()
     {
-        // Cherche la première room publique non pleine
-        int roomIndex = 1;
-        foreach (var room in cachedRoomList)
-        {
-            if (room.Name.StartsWith("PublicRoom") && room.PlayerCount < room.MaxPlayers && room.IsOpen && room.IsVisible)
-            {
-                roomName = room.Name;
-                PhotonNetwork.JoinRoom(room.Name);
-                return;
-            }
-            // Pour générer le prochain index
-            if (room.Name.StartsWith("PublicRoom"))
-            {
-                int idx;
-                if (int.TryParse(room.Name.Replace("PublicRoom", ""), out idx))
-                {
-                    roomIndex = Mathf.Max(roomIndex, idx + 1);
-                }
-            }
-        }
-        // Si aucune room publique dispo, crée la suivante
-        string newRoomName = $"PublicRoom{roomIndex}";
-        roomName = newRoomName;
-        RoomOptions options = new RoomOptions
-        {
-            MaxPlayers = maxPlayers,
-            IsVisible = true,
-            IsOpen = true
-        };
-        PhotonNetwork.CreateRoom(newRoomName, options, TypedLobby.Default);
+        Debug.Log("[LOBBYUI] JoinOrCreatePublicRoom appelé, redirection vers JoinRandomPublicRoom");
+        JoinRandomPublicRoom();
     }
 }

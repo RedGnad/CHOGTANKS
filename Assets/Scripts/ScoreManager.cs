@@ -269,32 +269,63 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         
         if (LobbyUI.Instance != null)
         {
-            LobbyUI.Instance.UpdateRoomStatus("Match terminé!");
+            LobbyUI.Instance.UpdateRoomStatus("Match ended!");
         }
         
         int highestScore = -1;
         int winnerActorNumber = -1;
-        string winnerName = "Personne";
+        string winnerName = "Unknown Player";
         
+        // Vérifier si nous avons déjà un nom associé à chaque actorNumber dans un dictionnaire persistant
+        if (_playerNames == null)
+        {
+            _playerNames = new Dictionary<int, string>();
+        }
+        
+        // D'abord, sauvegarder tous les noms des joueurs actuellement connectés
+        foreach (Player player in PhotonNetwork.PlayerList)
+        {
+            string playerNickname = string.IsNullOrEmpty(player.NickName) ? 
+                $"Player {player.ActorNumber}" : player.NickName;
+            _playerNames[player.ActorNumber] = playerNickname;
+        }
+        
+        // Trouver le score le plus élevé
         foreach (var pair in playerScores)
         {
             if (pair.Value > highestScore)
             {
                 highestScore = pair.Value;
-                winnerActorNumber = pair.Key;
-                
-                foreach (Player player in PhotonNetwork.PlayerList)
-                {
-                    if (player.ActorNumber == winnerActorNumber)
-                    {
-                        winnerName = string.IsNullOrEmpty(player.NickName) ? 
-                            $"Player {player.ActorNumber}" : player.NickName;
-                        break;
-                    }
-                }
             }
         }
         
+        // Trouver le premier joueur avec le score le plus élevé (priorité aux connectés)
+        // D'abord chercher parmi les joueurs connectés
+        foreach (Player player in PhotonNetwork.PlayerList)
+        {
+            if (playerScores.ContainsKey(player.ActorNumber) && playerScores[player.ActorNumber] == highestScore)
+            {
+                winnerActorNumber = player.ActorNumber;
+                winnerName = _playerNames[player.ActorNumber];
+                break;
+            }
+        }
+        
+        // Si aucun joueur connecté n'a le score max, prendre le premier dans playerScores
+        if (winnerActorNumber == -1)
+        {
+            foreach (var pair in playerScores)
+            {
+                if (pair.Value == highestScore)
+                {
+                    winnerActorNumber = pair.Key;
+                    // Utiliser le nom sauvegardé ou un nom par défaut
+                    winnerName = _playerNames.ContainsKey(winnerActorNumber) ? 
+                        _playerNames[winnerActorNumber] : $"Player {winnerActorNumber}";
+                    break;
+                }
+            }
+        }
         
         if (winnerActorNumber != -1)
         {
@@ -321,11 +352,27 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
     }
     
+    // Dictionnaire pour conserver les noms des joueurs même après leur déconnexion
+    private static Dictionary<int, string> _playerNames = new Dictionary<int, string>();
+    
     public void ShowWinnerAndSubmitScores(int winnerActorNumber, string winnerName, int highestScore)
     {
         if (LobbyUI.Instance != null)
         {
-            LobbyUI.Instance.UpdateRoomStatus($"Victoire : {winnerName} avec {highestScore} points!");
+            LobbyUI.Instance.UpdateRoomStatus($"Victory: {winnerName} with {highestScore} points!");
+        }
+        
+        // Afficher l'UI de Game Over avec le nom du gagnant
+        GameObject[] gameOverUIs = GameObject.FindGameObjectsWithTag("GameOverUI");
+        
+        if (gameOverUIs.Length == 0)
+        {
+            // Trouver le launcher pour afficher le gagnant avec le compte à rebours
+            PhotonLauncher launcher = FindObjectOfType<PhotonLauncher>();
+            if (launcher != null)
+            {
+                launcher.ShowWinnerToAllRPC(winnerName, winnerActorNumber);
+            }
         }
         
         int localPlayerScore = 0;
