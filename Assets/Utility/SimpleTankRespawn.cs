@@ -68,7 +68,24 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         
         InitializeComponents();
         
-        SetTankActive(true);
+        // Vérifier si le match est terminé avant d'activer le tank
+        bool shouldActivate = true;
+        if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
+        {
+            Debug.Log("[TANK] ResetTankState - Tank not activated, match has ended");
+            shouldActivate = false;
+        }
+        
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            Debug.Log("[TANK] ResetTankState - Tank not activated, game is over");
+            shouldActivate = false;
+        }
+        
+        if (shouldActivate)
+        {
+            SetTankActive(true);
+        }
         
         isDead = false;
         
@@ -104,6 +121,18 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     
     public void OnJoinedRoom()
     {
+        // Vérifier si le match est terminé avant de reset le tank
+        if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
+        {
+            Debug.Log("[TANK] OnJoinedRoom ignored - Match has ended");
+            return;
+        }
+        
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            Debug.Log("[TANK] OnJoinedRoom ignored - Game is over");
+            return;
+        }
         
         StartCoroutine(DelayedReset());
     }
@@ -111,6 +140,20 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     private IEnumerator DelayedReset()
     {
         yield return new WaitForSeconds(0.2f);
+        
+        // Double vérification après le délai
+        if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
+        {
+            Debug.Log("[TANK] DelayedReset cancelled - Match has ended");
+            yield break;
+        }
+        
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            Debug.Log("[TANK] DelayedReset cancelled - Game is over");
+            yield break;
+        }
+        
         ResetTankState();
         
         if (!isDead)

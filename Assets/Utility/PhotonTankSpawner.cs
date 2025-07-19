@@ -25,6 +25,19 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
     
     public void SpawnTank()
     {
+        // Vérifier si le match est terminé avant de spawner un tank
+        if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
+        {
+            Debug.Log("[SPAWN] SpawnTank cancelled - Match has ended");
+            return;
+        }
+        
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            Debug.Log("[SPAWN] SpawnTank cancelled - Game is over");
+            return;
+        }
+        
         Vector2 spawnPos = fallbackSpawnPosition;
         if (spawnPoints != null && spawnPoints.Length > 0)
         {
