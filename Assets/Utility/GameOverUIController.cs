@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using System.Collections;
 using Photon.Pun;
 
@@ -57,7 +58,7 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
         StartCoroutine(CountdownAndReturnToLobby(6));
     }
     
-    private IEnumerator CountdownAndReturnToLobby(int seconds)
+    public IEnumerator CountdownAndReturnToLobby(int seconds)
     {
         if (countdownText != null)
         {
@@ -79,14 +80,18 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
             countdownText.text = "Returning to lobby...";
         }
         
-        if (PhotonNetwork.IsConnected && PhotonNetwork.InRoom)
+        // SIMULATION EXACTE DU BOUTON BACK - TRIVIAL
+        Debug.Log("[GAMEOVER] Simulation du bouton Back après 6 secondes");
+        
+        LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
+        if (lobbyUI != null)
         {
-            Debug.Log("Automatic return to lobby");
-            string lobbySceneName = "LobbyScene";
-            
-            PhotonNetwork.AddCallbackTarget(new LobbySceneLoader(lobbySceneName));
-            
-            PhotonNetwork.LeaveRoom();
+            Debug.Log("[GAMEOVER] LobbyUI trouvé, appel OnBackToLobby()");
+            lobbyUI.OnBackToLobby();
+        }
+        else
+        {
+            Debug.LogError("[GAMEOVER] LobbyUI non trouvé ! Impossible de simuler le bouton Back");
         }
     }
     

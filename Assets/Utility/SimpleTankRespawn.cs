@@ -147,28 +147,22 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         
         SetTankActive(false);
         
-        if (renderers.Count > 0)
-        {
-            Debug.Log($"[TANK] Renderers désactivés pour {photonView.Owner?.NickName}, renderer[0].enabled = {renderers[0].enabled}");
-        }
-        else
-        {
-            Debug.LogWarning($"[TANK] Pas de renderers à désactiver pour {photonView.Owner?.NickName}");
-        }
         
-        if (PhotonNetwork.IsMasterClient && killerActorNumber > 0 && killerActorNumber != photonView.Owner.ActorNumber)
+        if (PhotonNetwork.IsConnected && killerActorNumber > 0 && killerActorNumber != photonView.OwnerActorNr)
         {
-            var scoreManager = ScoreManager.Instance;
-            if (scoreManager != null)
+            
+            // Attribuer le kill au ScoreManager pour comptabiliser les points
+            if (ScoreManager.Instance != null)
             {
-                scoreManager.AddKill(killerActorNumber);
+                ScoreManager.Instance.AddKill(killerActorNumber);
+                Debug.Log($"[SCORE] Kill attribué au joueur {killerActorNumber} pour avoir éliminé le joueur {photonView.Owner.ActorNumber}");
             }
             else
             {
                 Debug.LogError("[TANK] ScoreManager.Instance est null, impossible d'attribuer le kill");
             }
             
-            // Notification de kill pour tous les joueurs
+            
             KillNotificationManager killManager = KillNotificationManager.Instance;
             if (killManager != null)
             {
@@ -183,7 +177,11 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         if (photonView.IsMine)
         {
             ShowGameOverUI();
-            StartCoroutine(RespawnCoroutine());
+            
+            if (GameManager.Instance == null || !GameManager.Instance.isGameOver)
+            {
+                StartCoroutine(RespawnCoroutine());
+            }
         }
     }
     
@@ -221,6 +219,20 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     {
         yield return new WaitForSeconds(respawnTime);
         
+        // Check if the game is over or if the match timer has ended
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            Debug.Log("[TANK] Respawn coroutine stopped - Game is over");
+            yield break;
+        }
+        
+        // Check if the match timer has ended in ScoreManager
+        if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
+        {
+            Debug.Log("[TANK] Respawn coroutine stopped - Match has ended");
+            yield break;
+        }
+        
         Vector3 respawnPosition = transform.position;
         var spawner = FindObjectOfType<PhotonTankSpawner>();
         if (spawner != null && spawner.spawnPoints != null && spawner.spawnPoints.Length > 0)
@@ -242,6 +254,19 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     [PunRPC]
     public void RespawnRPC(float x, float y, float z, PhotonMessageInfo info)
     {
+        // Check if the game is over or if the match timer has ended
+        if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+        {
+            Debug.Log("[TANK] Respawn prevented - Game is over");
+            return;
+        }
+        
+        // Check if the match timer has ended in ScoreManager
+        if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
+        {
+            Debug.Log("[TANK] Respawn prevented - Match has ended");
+            return;
+        }
         
         SetTankActive(true);
         isDead = false;
@@ -253,7 +278,6 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         {
             health.ResetHealth();
         }
-        
     }
     
     private void ShowGameOverUI()
@@ -285,6 +309,48 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         if (controller != null)
         {
             controller.ShowGameOver();
+        }
+    }
+    
+    [PunRPC]
+    public void ShowWinnerUI(string winnerName)
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetGameOver();
+        }
+        
+        if (gameOverUIPrefab == null) return;
+        
+        if (gameOverUI != null)
+        {
+            Destroy(gameOverUI);
+        }
+        
+        Camera mainCam = Camera.main;
+        if (mainCam == null) return;
+        
+        gameOverUI = Instantiate(gameOverUIPrefab, mainCam.transform);
+        if (gameOverUI != null)
+        {
+            gameOverUI.tag = "GameOverUI";
+        }
+        
+        RectTransform rt = gameOverUI.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.localPosition = new Vector3(0f, 0f, 1f);
+            rt.localRotation = Quaternion.identity;
+            float baseScale = 1f;
+            float dist = Vector3.Distance(mainCam.transform.position, rt.position);
+            float scaleFactor = baseScale * (dist / mainCam.orthographicSize) * 0.1f;
+            rt.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
+        }
+        
+        var controller = gameOverUI.GetComponent<GameOverUIController>();
+        if (controller != null)
+        {
+            controller.ShowWinner(winnerName);
         }
     }
 }

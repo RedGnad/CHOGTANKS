@@ -9,7 +9,7 @@ using TMPro;
 
 public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
 {
-    private const float ROOM_LIFETIME = 240f;
+    private const float ROOM_LIFETIME = 180f; // 3 minutes au lieu de 4
     private const float RESPAWN_TIME = 5f;
     
     private const byte SCORE_UPDATE_EVENT = 1;
@@ -276,13 +276,11 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         int winnerActorNumber = -1;
         string winnerName = "Unknown Player";
         
-        // Vérifier si nous avons déjà un nom associé à chaque actorNumber dans un dictionnaire persistant
         if (_playerNames == null)
         {
             _playerNames = new Dictionary<int, string>();
         }
         
-        // D'abord, sauvegarder tous les noms des joueurs actuellement connectés
         foreach (Player player in PhotonNetwork.PlayerList)
         {
             string playerNickname = string.IsNullOrEmpty(player.NickName) ? 
@@ -290,7 +288,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             _playerNames[player.ActorNumber] = playerNickname;
         }
         
-        // Trouver le score le plus élevé
         foreach (var pair in playerScores)
         {
             if (pair.Value > highestScore)
@@ -299,8 +296,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
         }
         
-        // Trouver le premier joueur avec le score le plus élevé (priorité aux connectés)
-        // D'abord chercher parmi les joueurs connectés
         foreach (Player player in PhotonNetwork.PlayerList)
         {
             if (playerScores.ContainsKey(player.ActorNumber) && playerScores[player.ActorNumber] == highestScore)
@@ -311,7 +306,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
         }
         
-        // Si aucun joueur connecté n'a le score max, prendre le premier dans playerScores
         if (winnerActorNumber == -1)
         {
             foreach (var pair in playerScores)
@@ -319,7 +313,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 if (pair.Value == highestScore)
                 {
                     winnerActorNumber = pair.Key;
-                    // Utiliser le nom sauvegardé ou un nom par défaut
                     winnerName = _playerNames.ContainsKey(winnerActorNumber) ? 
                         _playerNames[winnerActorNumber] : $"Player {winnerActorNumber}";
                     break;
@@ -352,7 +345,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
     }
     
-    // Dictionnaire pour conserver les noms des joueurs même après leur déconnexion
     private static Dictionary<int, string> _playerNames = new Dictionary<int, string>();
     
     public void ShowWinnerAndSubmitScores(int winnerActorNumber, string winnerName, int highestScore)
@@ -362,12 +354,10 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             LobbyUI.Instance.UpdateRoomStatus($"Victory: {winnerName} with {highestScore} points!");
         }
         
-        // Afficher l'UI de Game Over avec le nom du gagnant
         GameObject[] gameOverUIs = GameObject.FindGameObjectsWithTag("GameOverUI");
         
         if (gameOverUIs.Length == 0)
         {
-            // Trouver le launcher pour afficher le gagnant avec le compte à rebours
             PhotonLauncher launcher = FindObjectOfType<PhotonLauncher>();
             if (launcher != null)
             {
@@ -515,13 +505,11 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 LobbyUI.Instance.UpdatePlayerList();
             }
         }
-        else if (eventCode == SYNC_TIMER_EVENT) // Nouveau système de synchronisation
+        else if (eventCode == SYNC_TIMER_EVENT)
         {
             float timeRemaining = (float)photonEvent.CustomData;
-            // Ajuster le temps de démarrage pour que le calcul donne le bon temps restant
             matchStartTime = Time.time - (ROOM_LIFETIME - timeRemaining);
             
-            // Mettre à jour immédiatement le timer UI
             if (LobbyUI.Instance != null)
             {
                 LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeRemaining));
@@ -552,7 +540,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             SyncScores();
             
-            // Envoyer immédiatement le temps restant au joueur qui vient d'entrer
             float timeLeft = ROOM_LIFETIME - (Time.time - matchStartTime);
             SyncMatchTime(timeLeft);
         }
@@ -571,5 +558,11 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     public Dictionary<int, int> GetPlayerScores()
     {
         return playerScores;
+    }
+    
+    // Method to check if the match has ended
+    public bool IsMatchEnded()
+    {
+        return matchEnded || (Time.time - matchStartTime) >= ROOM_LIFETIME;
     }
 }

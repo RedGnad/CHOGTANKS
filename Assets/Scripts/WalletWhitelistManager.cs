@@ -24,9 +24,6 @@ public class WhitelistedButtonRule
     public Color lockedColor = Color.gray;
 }
 
-/// <summary>
-/// Gère une whitelist d'adresses de wallet et contrôle l'accès à certains boutons en fonction de l'appartenance à cette liste.
-/// </summary>
 public class WalletWhitelistManager : MonoBehaviour
 {
     [Header("Whitelist Configuration")]
@@ -52,10 +49,8 @@ public class WalletWhitelistManager : MonoBehaviour
     
     void Start()
     {
-        // Sauvegarder les textes originaux des boutons NFT
         SaveOriginalButtonTexts();
         
-        // Vérifier périodiquement le statut du wallet
         InvokeRepeating(nameof(CheckWalletStatus), 0.5f, 1.5f);
     }
     
@@ -80,11 +75,9 @@ public class WalletWhitelistManager : MonoBehaviour
         bool wasConnected = isWalletConnected;
         string oldWallet = currentWallet;
         
-        // Récupérer l'adresse du wallet connecté
         currentWallet = GetConnectedWallet();
         isWalletConnected = !string.IsNullOrEmpty(currentWallet);
         
-        // Mettre à jour l'interface si l'état de connexion ou l'adresse a changé
         if (wasConnected != isWalletConnected || oldWallet != currentWallet)
         {
             UpdateButtonStates();
@@ -98,7 +91,6 @@ public class WalletWhitelistManager : MonoBehaviour
         
         try
         {
-            // Essayer d'obtenir l'adresse via AppKit
             if (Reown.AppKit.Unity.AppKit.IsInitialized && 
                 Reown.AppKit.Unity.AppKit.IsAccountConnected && 
                 Reown.AppKit.Unity.AppKit.Account != null)
@@ -115,14 +107,12 @@ public class WalletWhitelistManager : MonoBehaviour
             Debug.LogWarning($"[WalletWhitelist] Erreur AppKit: {ex.Message}");
         }
         
-        // Fallback: vérifier PlayerPrefs
         walletAddress = PlayerPrefs.GetString("walletAddress", "");
         if (!string.IsNullOrEmpty(walletAddress))
         {
             return walletAddress;
         }
         
-        // Fallback: vérifier PlayerSession
         try
         {
             if (PlayerSession.IsConnected && !string.IsNullOrEmpty(PlayerSession.WalletAddress))
@@ -142,7 +132,6 @@ public class WalletWhitelistManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(walletAddress)) return false;
         
-        // Vérifier si l'adresse est dans la whitelist (case sensitive)
         return whitelistedWallets.Contains(walletAddress);
     }
     
@@ -154,20 +143,16 @@ public class WalletWhitelistManager : MonoBehaviour
         {
             if (rule.button == null) continue;
             
-            // Si wallet connecté et whitelisté, activer le bouton
             bool unlocked = isWalletConnected && isWhitelisted;
             
-            // Mettre à jour l'état du bouton
             rule.button.interactable = unlocked;
             
-            // Mettre à jour la couleur du bouton
             Image buttonImage = rule.button.GetComponent<Image>();
             if (buttonImage != null)
             {
                 buttonImage.color = unlocked ? rule.unlockedColor : rule.lockedColor;
             }
             
-            // Mettre à jour le texte de verrouillage si présent
             if (rule.lockedText != null)
             {
                 rule.lockedText.gameObject.SetActive(!unlocked);
@@ -185,21 +170,15 @@ public class WalletWhitelistManager : MonoBehaviour
             
             if (isWalletConnected)
             {
-                // Restaurer le texte original si le wallet est connecté
                 textComponent.text = (i < originalNftButtonTexts.Count) ? originalNftButtonTexts[i] : "";
             }
             else
             {
-                // Afficher "Connect Wallet" si pas de wallet connecté
                 textComponent.text = notConnectedMessage;
             }
         }
     }
     
-    /// <summary>
-    /// Ajoute une adresse wallet à la whitelist à l'exécution
-    /// </summary>
-    /// <param name="walletAddress">Adresse à ajouter</param>
     public void AddWalletToWhitelist(string walletAddress)
     {
         if (string.IsNullOrEmpty(walletAddress)) return;
@@ -211,10 +190,6 @@ public class WalletWhitelistManager : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Supprime une adresse wallet de la whitelist à l'exécution
-    /// </summary>
-    /// <param name="walletAddress">Adresse à supprimer</param>
     public void RemoveWalletFromWhitelist(string walletAddress)
     {
         if (whitelistedWallets.Contains(walletAddress))
@@ -229,3 +204,5 @@ public class WalletWhitelistManager : MonoBehaviour
         CancelInvoke(nameof(CheckWalletStatus));
     }
 }
+
+

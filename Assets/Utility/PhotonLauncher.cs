@@ -102,12 +102,39 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
                 {
                     controller.ShowWinner(winnerName);
                 }
+                
+                StartCoroutine(ReturnToLobbyAfterDelay(6));
             }
             
             StartCoroutine(AutoDestroyAndRestart(uiInstance));
         }
     }
 
+    private System.Collections.IEnumerator ReturnToLobbyAfterDelay(int seconds)
+    {
+        // Empêcher tout respawn dès maintenant, avant même le countdown
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetGameOver();
+        }
+        
+        Debug.Log($"[PHOTON] Retour lobby dans {seconds} secondes...");
+        yield return new WaitForSeconds(seconds);
+        
+        Debug.Log("[PHOTON] SIMULATION DU BOUTON BACK MAINTENANT!");
+        
+        LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
+        if (lobbyUI != null)
+        {
+            Debug.Log("[PHOTON] LobbyUI trouvé, appel OnBackToLobby()");
+            lobbyUI.OnBackToLobby();
+        }
+        else
+        {
+            Debug.LogError("[PHOTON] LobbyUI non trouvé !");
+        }
+    }
+    
     private System.Collections.IEnumerator AutoDestroyAndRestart(GameObject uiInstance)
     {
         yield return new WaitForSeconds(3f);
