@@ -20,7 +20,7 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         }
     }
 
-    private static System.Collections.Generic.Dictionary<int, int> lastSpawnPointByPlayer = 
+    public static System.Collections.Generic.Dictionary<int, int> lastSpawnPointByPlayer = 
         new System.Collections.Generic.Dictionary<int, int>();
     
     public void SpawnTank()
@@ -28,13 +28,11 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         // Vérifier si le match est terminé avant de spawner un tank
         if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
         {
-            Debug.Log("[SPAWN] SpawnTank cancelled - Match has ended");
             return;
         }
         
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
-            Debug.Log("[SPAWN] SpawnTank cancelled - Game is over");
             return;
         }
         

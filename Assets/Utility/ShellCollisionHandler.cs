@@ -4,7 +4,6 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class ShellCollisionHandler : MonoBehaviourPun
 {
-    [Tooltip("Couches avec lesquelles le shell explose (par ex. Ground ou Tank).")]
     [SerializeField] private LayerMask collisionLayers;
 
     [Header("Explosion par Raycast (shell)")]
@@ -14,7 +13,6 @@ public class ShellCollisionHandler : MonoBehaviourPun
     [SerializeField] private float precisionDamage = 50f;
     [SerializeField] private LayerMask tankLayerMask;
 
-    [Tooltip("Prefab contenant uniquement le ParticleSystem (local-only).")]
     [SerializeField] private GameObject particleOnlyExplosionPrefab;
 
     [Header("Sprites")]

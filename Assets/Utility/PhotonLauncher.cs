@@ -121,12 +121,9 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         Debug.Log($"[PHOTON] Retour lobby dans {seconds} secondes...");
         yield return new WaitForSeconds(seconds);
         
-        Debug.Log("[PHOTON] SIMULATION DU BOUTON BACK MAINTENANT!");
-        
         LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            Debug.Log("[PHOTON] LobbyUI trouvé, appel OnBackToLobby()");
             lobbyUI.OnBackToLobby();
         }
         else
@@ -169,7 +166,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     [Header("Room Settings")]
     public string roomName = "";
-    public byte maxPlayers = 8;
+    public byte maxPlayers =10;
 
     public LobbyUI lobbyUI;
 
@@ -203,7 +200,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     {
         if (string.IsNullOrEmpty(playerName))
         {
-            PhotonNetwork.NickName = "Player_" + Random.Range(1000, 9999);
+            PhotonNetwork.NickName = "Newbie_" + Random.Range(100, 999);
         }
         else
         {
@@ -305,7 +302,15 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             PhotonNetwork.Disconnect();
         }
         
-        UnityEngine.SceneManagement.SceneManager.LoadScene(lobbySceneName);
+        LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
+        if (lobbyUI != null)
+        {
+            lobbyUI.OnBackToLobby();
+        }
+        else
+        {
+            Debug.LogWarning("[PHOTON] LobbyUI non trouvé pour le retour au lobby après déconnexion");
+        }
     }
 
     public override void OnJoinedRoom()
@@ -316,6 +321,15 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
             lobbyUI.OnJoinedRoomUI(PhotonNetwork.CurrentRoom.Name);
         }
         
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.isGameOver = false;
+        }
+        
+        if (ScoreManager.Instance != null) 
+        {
+            ScoreManager.Instance.ResetManager();
+        }
         
         var spawner = FindObjectOfType<PhotonTankSpawner>();
         if (spawner != null)
@@ -378,7 +392,6 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
 
     public void JoinOrCreatePublicRoom()
     {
-        Debug.Log("[LOBBYUI] JoinOrCreatePublicRoom appelé, redirection vers JoinRandomPublicRoom");
         JoinRandomPublicRoom();
     }
 }

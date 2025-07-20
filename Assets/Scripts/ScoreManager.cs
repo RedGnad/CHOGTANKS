@@ -9,7 +9,7 @@ using TMPro;
 
 public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
 {
-    private const float ROOM_LIFETIME = 180f; // 3 minutes au lieu de 4
+    private const float ROOM_LIFETIME = 180f; 
     private const float RESPAWN_TIME = 5f;
     
     private const byte SCORE_UPDATE_EVENT = 1;
@@ -54,7 +54,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         playerScores.Clear();
         playerWallets.Clear();
-        matchStartTime = 0;
+        matchStartTime = Time.time; 
         matchEnded = false;
         
         StopAllCoroutines();
@@ -198,7 +198,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             AddKill(killerActorNumber);
 
-            // --- AJOUT NOTIFICATION KILL ---
             string killerName = GetPlayerName(killerActorNumber);
             string victimName = GetPlayerName(victimActorNumber);
             if (LobbyUI.Instance != null && LobbyUI.Instance.killFeedText != null)
@@ -378,6 +377,11 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             SubmitScoreToFirebase(localPlayerScore, bonus);
         }
         
+        ChogTanksNFTManager nftManager = FindObjectOfType<ChogTanksNFTManager>();
+        if (nftManager != null)
+        {
+            nftManager.ForceRefreshAfterMatch(localPlayerScore);
+        }
     }
     
     private void SubmitScoreToFirebase(int score, int bonus)
@@ -480,7 +484,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             
             ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
         }
-        else if (eventCode == 3) // Wallet info
+        else if (eventCode == 3) 
         {
             object[] data = (object[])photonEvent.CustomData;
             string actorIdStr = (string)data[0];
@@ -488,7 +492,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             
             playerWallets[actorIdStr] = walletAddress;
         }
-        else if (eventCode == 4) // Sync scores
+        else if (eventCode == 4) 
         {
             object[] data = (object[])photonEvent.CustomData;
             
@@ -560,7 +564,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         return playerScores;
     }
     
-    // Method to check if the match has ended
     public bool IsMatchEnded()
     {
         return matchEnded || (Time.time - matchStartTime) >= ROOM_LIFETIME;

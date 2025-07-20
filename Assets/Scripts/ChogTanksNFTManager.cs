@@ -53,6 +53,7 @@ public class ChogTanksNFTManager : MonoBehaviour
     public UnityEngine.UI.Button evolutionButton;
     public TextMeshProUGUI statusText;
     public TextMeshProUGUI levelText;
+    public TextMeshProUGUI scoreProgressText;
     
     private string currentPlayerWallet = "";
     private bool isProcessingEvolution = false;
@@ -74,20 +75,140 @@ public class ChogTanksNFTManager : MonoBehaviour
 
     void Start()
     {
-        RefreshWalletAddress();
+        HideLevelUI();
         
         if (evolutionButton != null)
         {
             evolutionButton.onClick.AddListener(OnEvolutionButtonClicked);
         }
         
-        UpdateStatusUI("Initializing...");
+        UpdateStatusUI(" ");
         
+        currentPlayerWallet = PlayerPrefs.GetString("walletAddress", "");
+        if (!string.IsNullOrEmpty(currentPlayerWallet))
+        {
+            LoadNFTStateFromFirebase();
+        }
+        
+        var connect = FindObjectOfType<Sample.ConnectWalletButton>();
+        if (connect != null)
+        {
+            connect.OnPersonalSignCompleted += OnPersonalSignApproved;
+        }
+        
+    }
+    
+    void OnPersonalSignApproved()
+    {
+        Debug.Log("[NFTManager] Personal sign completed - refreshing wallet and UI");
+        currentPlayerWallet = PlayerPrefs.GetString("walletAddress", "");
         if (!string.IsNullOrEmpty(currentPlayerWallet))
         {
             LoadNFTStateFromFirebase();
         }
     }
+    
+    public void HideLevelUI()
+    {
+        if (levelText != null)
+        {
+            levelText.gameObject.SetActive(false);
+        }
+        
+        if (scoreProgressText != null)
+        {
+            scoreProgressText.gameObject.SetActive(false);
+        }
+        
+        // Réinitialiser le texte d'état NFT seulement s'il contient un message NFT
+        if (statusText != null && statusText.text.Contains("Level"))
+        {
+            statusText.text = " "; // Caractère vide par défaut
+        }
+    }
+    
+    public void DisconnectWallet()
+    {
+        currentPlayerWallet = "";
+        PlayerPrefs.DeleteKey("walletAddress");
+        PlayerPrefs.Save();
+        HideLevelUI();
+        Debug.Log("[NFTManager] Wallet disconnected - UI hidden");
+    }
+    
+    public void ForceRefreshAfterMatch(int matchScore = 0)
+    {
+        Debug.Log($"[NFTManager] ForceRefreshAfterMatch called with matchScore={matchScore}");
+        RefreshWalletAddress();
+        
+        bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
+        bool walletInPrefs = !string.IsNullOrEmpty(PlayerPrefs.GetString("walletAddress", ""));
+        bool walletConnected = !string.IsNullOrEmpty(currentPlayerWallet);
+        
+        if ((walletConnected && signApproved) || walletInPrefs)
+        {
+            if (matchScore > 0)
+            {
+                Debug.Log($"[NFTManager] Updating local score immediately: {currentNFTState.score} + {matchScore}");
+                UpdateLocalScoreAndUI(matchScore);
+                StartCoroutine(DelayedFirebaseConfirmation());
+            }
+            else
+            {
+                Debug.Log("[NFTManager] No match score, loading NFT state with delay");
+                StartCoroutine(DelayedFirebaseRefresh());
+            }
+        }
+        else
+        {
+            Debug.Log("[NFTManager] No valid wallet connection, updating UI to level 0");
+            UpdateLevelUI(0);
+        }
+    }
+    
+    void UpdateLocalScoreAndUI(int matchScore)
+    {
+        int oldScore = currentNFTState.score;
+        int newScore = oldScore + matchScore;
+        
+        currentNFTState.score = newScore;
+        
+        Debug.Log($"[NFTManager] Local score updated: {oldScore} -> {newScore}");
+        UpdateLevelUI(currentNFTState.level);
+    }
+    
+    System.Collections.IEnumerator DelayedFirebaseRefresh()
+    {
+        yield return new WaitForSeconds(2f);
+        Debug.Log("[NFTManager] Loading NFT state from Firebase after delay");
+        LoadNFTStateFromFirebase();
+    }
+    
+    System.Collections.IEnumerator DelayedFirebaseConfirmation()
+    {
+        yield return new WaitForSeconds(3f);
+        Debug.Log("[NFTManager] Confirming NFT state with Firebase after local update");
+        
+        int localScore = currentNFTState.score;
+        int localLevel = currentNFTState.level;
+        
+        LoadNFTStateFromFirebase();
+        
+        yield return new WaitForSeconds(1f);
+        
+        if (currentNFTState.score != localScore || currentNFTState.level != localLevel)
+        {
+            Debug.Log($"[NFTManager] Firebase confirmation mismatch - Local: {localScore}/{localLevel}, Firebase: {currentNFTState.score}/{currentNFTState.level}");
+            Debug.Log("[NFTManager] Using Firebase data as authoritative");
+            UpdateLevelUI(currentNFTState.level);
+        }
+        else
+        {
+            Debug.Log("[NFTManager] Firebase confirmation successful - data matches local state");
+        }
+    }
+    
+
 
     public void RefreshWalletAddress()
     {
@@ -220,25 +341,39 @@ public class ChogTanksNFTManager : MonoBehaviour
     void UpdateLevelUI(int level)
     {
         Debug.Log($"[NFT-DEBUG] UpdateLevelUI called with level={level}");
+        
+        string walletAddress = PlayerPrefs.GetString("walletAddress", "");
+        bool hasWallet = !string.IsNullOrEmpty(walletAddress);
+        
         if (levelText != null)
         {
-            string wallet = currentPlayerWallet;
-            bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
-            bool walletInPrefs = !string.IsNullOrEmpty(PlayerPrefs.GetString("walletAddress", ""));
-            bool walletConnected = !string.IsNullOrEmpty(wallet);
-            bool showLevel = (walletConnected && signApproved) || walletInPrefs;
-
-            levelText.gameObject.SetActive(showLevel);
-            if (showLevel)
+            levelText.gameObject.SetActive(hasWallet && level > 0);
+            if (hasWallet && level > 0)
             {
-                levelText.text = level > 0 ? $"NFT Level: {level}" : "No NFT";
+                levelText.text = $"NFT Level: {level}";
             }
-            else
-            {
-                levelText.text = "";
-            }
-            Debug.Log($"[NFT-DEBUG] Affichage levelText: showLevel={showLevel}, walletConnected={walletConnected}, signApproved={signApproved}, walletInPrefs={walletInPrefs}");
         }
+        
+        if (scoreProgressText != null)
+        {
+            scoreProgressText.gameObject.SetActive(hasWallet && level > 0);
+            if (hasWallet && level > 0)
+            {
+                int currentScore = currentNFTState.score;
+                int nextLevelThreshold = GetNextLevelThreshold(level);
+                
+                if (level >= 10)
+                {
+                    scoreProgressText.text = "MAX LEVEL";
+                }
+                else
+                {
+                    scoreProgressText.text = $"XP: {currentScore}/{nextLevelThreshold}";
+                }
+            }
+        }
+        
+        Debug.Log($"[NFT-DEBUG] UI State: hasWallet={hasWallet}, level={level}, showing={hasWallet && level > 0}");
     }
 
     public void OnEvolutionButtonClicked()
@@ -270,7 +405,6 @@ public class ChogTanksNFTManager : MonoBehaviour
             return;
         }
 
-        // --- LOGIQUE "PLEASE SIGN IN" ---
         bool signApproved = PlayerPrefs.GetInt("personalSignApproved", 0) == 1;
         bool isReconnection = !string.IsNullOrEmpty(PlayerPrefs.GetString("walletAddress", "")) && !signApproved;
         if (!signApproved && !isReconnection)
@@ -278,7 +412,6 @@ public class ChogTanksNFTManager : MonoBehaviour
             UpdateStatusUI("Please sign in");
             return;
         }
-        // --- FIN LOGIQUE ---
         
         currentPlayerWallet = walletAddress;
         
@@ -323,11 +456,9 @@ public class ChogTanksNFTManager : MonoBehaviour
 
     public void OnEvolutionCheckComplete(string evolutionDataJson)
     {
-        Debug.Log($"[NFT-DEBUG] OnEvolutionCheckComplete json={evolutionDataJson}");
         try
         {
             var evolutionData = JsonUtility.FromJson<EvolutionData>(evolutionDataJson);
-            Debug.Log($"[NFT-DEBUG] EvolutionData: authorized={evolutionData.authorized}, score={evolutionData.score}, currentLevel={evolutionData.currentLevel}, requiredScore={evolutionData.requiredScore}, error={evolutionData.error}");
             if (evolutionData.authorized)
             {
                 int targetLevel = CalculateTargetLevel(evolutionData.score, evolutionData.currentLevel);
@@ -378,6 +509,16 @@ public class ChogTanksNFTManager : MonoBehaviour
         
         return Mathf.Max(currentLevel, maxLevel);
     }
+    
+    private int GetNextLevelThreshold(int currentLevel)
+    {
+        if (currentLevel == 1)
+        {
+            return 2;
+        }
+        
+        return (currentLevel - 1) * 100;
+    }
 
     private async void SendMintTransaction()
     {
@@ -418,7 +559,6 @@ public class ChogTanksNFTManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError("[NFT] AppKit not initialized or wallet not connected");
                 UpdateStatusUI("Connect your wallet first");
                 isProcessingEvolution = false;
             }
@@ -469,7 +609,6 @@ public class ChogTanksNFTManager : MonoBehaviour
             }
             else
             {
-                Debug.LogError("[NFT] AppKit not initialized or wallet not connected");
                 UpdateStatusUI("Connect your wallet first");
                 isProcessingEvolution = false;
             }
@@ -800,14 +939,12 @@ public class ChogTanksNFTManager : MonoBehaviour
         }
     }
 
-    // Méthode à appeler après le personal sign pour forcer l'affichage du levelText
     public void ForceLevelTextDisplay()
     {
         Debug.Log("[NFT-DEBUG] ForceLevelTextDisplay called after personal sign");
         UpdateLevelUI(currentNFTState.level);
     }
 
-    // Fonctions de test disponibles dans l'inspecteur
     [ContextMenu("Test Evolution")]
     public void TestEvolution()
     {

@@ -4,7 +4,6 @@ using Photon.Pun;
 public class CameraFollow : MonoBehaviour
 {
     [Header("Délai de recherche du joueur")]
-    [Tooltip("Intervalle (en secondes) entre deux tentatives de recherche")]
     [SerializeField] private float searchInterval = 0.2f;
 
     [Header("Offset de la caméra")]

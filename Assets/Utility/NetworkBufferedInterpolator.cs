@@ -2,17 +2,10 @@ using Photon.Pun;
 using UnityEngine;
 using System.Collections.Generic;
 
-/// <summary>
-/// Interpolation réseau avancée avec buffer (historical interpolation).
-/// À attacher sur tanks et shells pour un mouvement ultra fluide même en cas de lag.
-/// Le PhotonView doit observer ce script.
-/// </summary>
 public class NetworkBufferedInterpolator : MonoBehaviourPun, IPunObservable
 {
     [Header("Interpolation avancée")]
-    [Tooltip("Temps de retard d'interpolation en secondes (0.1 = 100ms)")]
     public float interpolationBackTime = 0.1f;
-    [Tooltip("Supprime les points trop vieux après ce délai (en s)")]
     public float bufferTimeLimit = 1.0f;
 
     private struct State
@@ -29,10 +22,8 @@ public class NetworkBufferedInterpolator : MonoBehaviourPun, IPunObservable
         {
             double interpTime = PhotonNetwork.Time - interpolationBackTime;
 
-            // Supprime les états trop vieux
             stateBuffer.RemoveAll(s => s.timestamp < PhotonNetwork.Time - bufferTimeLimit);
 
-            // Cherche les deux states autour du temps d'interpolation
             for (int i = 0; i < stateBuffer.Count - 1; i++)
             {
                 if (stateBuffer[i].timestamp <= interpTime && interpTime <= stateBuffer[i + 1].timestamp)
@@ -45,7 +36,6 @@ public class NetworkBufferedInterpolator : MonoBehaviourPun, IPunObservable
                     return;
                 }
             }
-            // Si trop vieux ou trop récent, extrapole ou fixe sur le plus proche
             State latest = stateBuffer[stateBuffer.Count - 1];
             transform.position = latest.position;
             transform.rotation = latest.rotation;
@@ -68,7 +58,6 @@ public class NetworkBufferedInterpolator : MonoBehaviourPun, IPunObservable
                 rotation = (Quaternion)stream.ReceiveNext()
             };
             stateBuffer.Add(state);
-            // Garde le buffer trié
             stateBuffer.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
         }
     }

@@ -413,7 +413,6 @@ public class NFTVerification : MonoBehaviour
         PlayerPrefs.Save();
         UpdateStatus("Déconnecté");
         
-        // Verrouiller tous les boutons
         LockAllButtons();
     }
     
@@ -461,7 +460,6 @@ public class NFTVerification : MonoBehaviour
     
     IEnumerator CheckButtonRule(ButtonUnlockRule rule)
     {
-        // Si pas de wallet connecté, on désactive le bouton et on affiche "Connect Wallet"
         if (string.IsNullOrEmpty(currentWallet))
         {
             UpdateButtonFromRule(rule, false);
@@ -526,7 +524,6 @@ public class NFTVerification : MonoBehaviour
             }
             else
             {
-                // Afficher "Connect Wallet" si pas de wallet connecté, sinon message personnalisé
                 if (string.IsNullOrEmpty(currentWallet))
                 {
                     rule.lockedText.text = "Connect Wallet";
@@ -548,6 +545,13 @@ public class NFTVerification : MonoBehaviour
             {
                 UpdateButtonFromRule(rule, false);
             }
+        }
+        
+        // Masquer les textes NFT/XP en même temps que les boutons
+        ChogTanksNFTManager nftManager = FindObjectOfType<ChogTanksNFTManager>();
+        if (nftManager != null)
+        {
+            nftManager.HideLevelUI();
         }
     }
 

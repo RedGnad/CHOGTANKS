@@ -9,7 +9,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
 {
     [Header("Respawn")]
     [SerializeField] private float respawnTime = 5f;
-    [SerializeField] public GameObject gameOverUIPrefab; // Rendu public pour être accessible depuis TankComponentAdder
+    [SerializeField] public GameObject gameOverUIPrefab; 
     
     private bool isDead = false;
     private GameObject gameOverUI;
@@ -33,7 +33,6 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     {
         InitializeComponents();
         
-        // S'inscrire aux événements de callback Photon
         PhotonNetwork.AddCallbackTarget(this);
         
         isDead = false;
@@ -68,17 +67,14 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         
         InitializeComponents();
         
-        // Vérifier si le match est terminé avant d'activer le tank
         bool shouldActivate = true;
         if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
         {
-            Debug.Log("[TANK] ResetTankState - Tank not activated, match has ended");
             shouldActivate = false;
         }
         
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
-            Debug.Log("[TANK] ResetTankState - Tank not activated, game is over");
             shouldActivate = false;
         }
         
@@ -121,16 +117,13 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     
     public void OnJoinedRoom()
     {
-        // Vérifier si le match est terminé avant de reset le tank
         if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
         {
-            Debug.Log("[TANK] OnJoinedRoom ignored - Match has ended");
             return;
         }
         
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
-            Debug.Log("[TANK] OnJoinedRoom ignored - Game is over");
             return;
         }
         
@@ -144,13 +137,11 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         // Double vérification après le délai
         if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
         {
-            Debug.Log("[TANK] DelayedReset cancelled - Match has ended");
             yield break;
         }
         
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
-            Debug.Log("[TANK] DelayedReset cancelled - Game is over");
             yield break;
         }
         
@@ -194,11 +185,9 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         if (PhotonNetwork.IsConnected && killerActorNumber > 0 && killerActorNumber != photonView.OwnerActorNr)
         {
             
-            // Attribuer le kill au ScoreManager pour comptabiliser les points
             if (ScoreManager.Instance != null)
             {
                 ScoreManager.Instance.AddKill(killerActorNumber);
-                Debug.Log($"[SCORE] Kill attribué au joueur {killerActorNumber} pour avoir éliminé le joueur {photonView.Owner.ActorNumber}");
             }
             else
             {
@@ -262,26 +251,65 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     {
         yield return new WaitForSeconds(respawnTime);
         
-        // Check if the game is over or if the match timer has ended
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
-            Debug.Log("[TANK] Respawn coroutine stopped - Game is over");
             yield break;
         }
         
-        // Check if the match timer has ended in ScoreManager
         if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
         {
-            Debug.Log("[TANK] Respawn coroutine stopped - Match has ended");
             yield break;
         }
         
         Vector3 respawnPosition = transform.position;
         var spawner = FindObjectOfType<PhotonTankSpawner>();
+        
+        
         if (spawner != null && spawner.spawnPoints != null && spawner.spawnPoints.Length > 0)
         {
-            int spawnIdx = photonView.Owner.ActorNumber % spawner.spawnPoints.Length;
+            
+            int actorNumber = photonView.OwnerActorNr;
+            int spawnIdx = 0;
+            
+            if (spawner.spawnPoints.Length > 1)
+            {
+                int originalIdx = Random.Range(0, spawner.spawnPoints.Length);
+                spawnIdx = originalIdx;
+                
+                
+            if (PhotonTankSpawner.lastSpawnPointByPlayer.ContainsKey(actorNumber))
+            {
+                int previousIdx = PhotonTankSpawner.lastSpawnPointByPlayer[actorNumber];
+                
+                int attempts = 0;
+                while (spawnIdx == previousIdx && spawner.spawnPoints.Length > 1 && attempts < 10)
+                {
+                    spawnIdx = Random.Range(0, spawner.spawnPoints.Length);
+                    attempts++;
+                }
+            }
+            else
+            {
+                Debug.Log($"[RESPAWN] Aucun historique pour l'acteur {actorNumber}");
+            }
+            
+            PhotonTankSpawner.lastSpawnPointByPlayer[actorNumber] = spawnIdx;
+            }
+            else
+            {
+                Debug.Log($"[RESPAWN] Un seul point de spawn disponible");
+            }
+            
             respawnPosition = spawner.spawnPoints[spawnIdx].position;
+            
+            float offsetX = Random.Range(-0.5f, 0.5f);
+            float offsetY = Random.Range(-0.5f, 0.5f);
+            respawnPosition += new Vector3(offsetX, offsetY, 0);
+            
+        }
+        else
+        {
+            Debug.LogWarning($"[RESPAWN] Spawner non trouvé ou pas de points de spawn!");
         }
         
         photonView.RPC("RespawnRPC", RpcTarget.All, respawnPosition.x, respawnPosition.y, respawnPosition.z);
@@ -291,23 +319,18 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             Destroy(gameOverUI);
             gameOverUI = null;
         }
-        
     }
     
     [PunRPC]
     public void RespawnRPC(float x, float y, float z, PhotonMessageInfo info)
     {
-        // Check if the game is over or if the match timer has ended
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
-            Debug.Log("[TANK] Respawn prevented - Game is over");
             return;
         }
         
-        // Check if the match timer has ended in ScoreManager
         if (ScoreManager.Instance != null && ScoreManager.Instance.IsMatchEnded())
         {
-            Debug.Log("[TANK] Respawn prevented - Match has ended");
             return;
         }
         

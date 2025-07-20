@@ -22,7 +22,10 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     public GameObject waitingPanel;
     public TMP_Text playerListText;
     public Button backButton;
-    public TMP_Text killFeedText; 
+    public TMP_Text killFeedText;
+    
+    [Header("Player Name Display")]
+    public TMP_Text mainScreenPlayerNameText; 
     
     [Header("Match UI")]
     public TMP_Text timerText;
@@ -71,7 +74,7 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         
         createdCodeText.text = "";
         
-        string defaultName = "Player_" + Random.Range(1000, 9999);
+        string defaultName = "Newbie_" + Random.Range(100, 999);
         if (playerNameInput != null)
         {
             playerNameInput.text = defaultName;
@@ -92,6 +95,8 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         {
             roomStatusText.text = "";
         }
+        
+        UpdateMainScreenPlayerName();
     }
     
     private void OnEnable()
@@ -113,7 +118,7 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         if (string.IsNullOrEmpty(playerName) || playerName.Length < 2)
         {
             if(createdCodeText != null) createdCodeText.text = "Name must be at least 2 characters.";
-            playerName = "Player_" + Random.Range(1000, 9999);
+            playerName = "Newbie_" + Random.Range(100, 999);
             if (playerNameInput != null) playerNameInput.text = playerName;
         }
         else if (playerName.Length > 20)
@@ -124,6 +129,8 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         }
         
         launcher.SetPlayerName(playerName);
+        
+        UpdateMainScreenPlayerName();
         
         if (launcher.isConnectedAndReady)
         {
@@ -174,11 +181,10 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         {
             createRoomButton.interactable = true;
             joinRoomButton.interactable = true;
-            // NOUVEAU : Activer le bouton GO
             if (goButton != null) {
                 goButton.interactable = true;
                 var goText = goButton.GetComponentInChildren<TMP_Text>();
-                if (goText != null) goText.text = "PLAY";
+                if (goText != null) goText.text = "Brawl";
             }
         }
     }
@@ -340,6 +346,8 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         
         joinPanel.SetActive(true);
         waitingPanel.SetActive(false);
+        
+        UpdateMainScreenPlayerName();
     }
     
     public void OnFriendListUpdate(System.Collections.Generic.List<FriendInfo> friendList) { }
@@ -348,4 +356,18 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     public void OnJoinedRoom() { }
     public void OnJoinRoomFailed(short returnCode, string message) { }
     public void OnJoinRandomFailed(short returnCode, string message) { }
+    
+    private void UpdateMainScreenPlayerName()
+    {
+        if (mainScreenPlayerNameText != null)
+        {
+            string playerName = PhotonNetwork.NickName;
+            if (string.IsNullOrEmpty(playerName))
+            {
+                playerName = "Newbie_" + Random.Range(100, 999);
+            }
+            
+            mainScreenPlayerNameText.text = " " + playerName;
+        }
+    }
 }

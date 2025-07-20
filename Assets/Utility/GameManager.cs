@@ -34,9 +34,6 @@ public class GameManager : MonoBehaviourPunCallbacks
     
     public bool ShouldEndMatch()
     {
-        // Logique simple pour déterminer la fin du match
-        // Retourne false par défaut pour éviter de finir le match trop tôt
-        // Cette méthode peut être améliorée avec une vraie logique de fin de match
         return isGameOver;
     }
 }

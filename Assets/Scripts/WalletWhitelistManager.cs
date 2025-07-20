@@ -8,40 +8,30 @@ using System.Linq;
 [Serializable]
 public class WhitelistedButtonRule
 {
-    [Tooltip("Le bouton à activer/désactiver en fonction de la whitelist")]
     public Button button;
     
-    [Tooltip("Texte TMP à afficher quand le bouton est verrouillé (optionnel)")]
     public TextMeshProUGUI lockedText;
     
-    [Tooltip("Message à afficher quand verrouillé")]
     public string lockedMessage = "Access denied";
     
-    [Tooltip("Couleur du bouton quand débloqué")]
     public Color unlockedColor = Color.white;
     
-    [Tooltip("Couleur du bouton quand verrouillé")]
     public Color lockedColor = Color.gray;
 }
 
 public class WalletWhitelistManager : MonoBehaviour
 {
     [Header("Whitelist Configuration")]
-    [Tooltip("Liste des adresses de wallet autorisées (sensible à la casse)")]
     [SerializeField] private List<string> whitelistedWallets = new List<string>();
     
     [Header("Button Configuration")]
-    [Tooltip("Boutons à gérer selon la whitelist")]
     [SerializeField] private List<WhitelistedButtonRule> buttonRules = new List<WhitelistedButtonRule>();
     
     [Header("NFT Skin Buttons")]
-    [Tooltip("Texte à afficher sur les boutons NFT quand pas de wallet connecté")]
     [SerializeField] private string notConnectedMessage = "Connect Wallet";
     
-    [Tooltip("Liste des textes TMP des boutons de skins NFT")]
     [SerializeField] private List<TextMeshProUGUI> nftButtonTexts = new List<TextMeshProUGUI>();
     
-    [Tooltip("Textes originaux des boutons NFT (remplis automatiquement)")]
     [SerializeField] private List<string> originalNftButtonTexts = new List<string>();
     
     private string currentWallet = "";

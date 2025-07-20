@@ -199,7 +199,7 @@ namespace Sample
                 PlayerPrefs.SetInt("personalSignApproved", 1);
                 PlayerPrefs.Save();
                 Debug.Log($"[Connect] personalSignApproved flag set to {PlayerPrefs.GetInt("personalSignApproved", 0)}");
-                OnPersonalSignCompleted?.Invoke(); // Événement émis après la signature
+                OnPersonalSignCompleted?.Invoke(); 
                 var nftVerification = FindObjectOfType<NFTVerification>();
                 if (nftVerification != null)
                 {

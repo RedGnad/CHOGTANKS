@@ -80,13 +80,10 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
             countdownText.text = "Returning to lobby...";
         }
         
-        // SIMULATION EXACTE DU BOUTON BACK - TRIVIAL
-        Debug.Log("[GAMEOVER] Simulation du bouton Back après 6 secondes");
         
         LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            Debug.Log("[GAMEOVER] LobbyUI trouvé, appel OnBackToLobby()");
             lobbyUI.OnBackToLobby();
         }
         else
