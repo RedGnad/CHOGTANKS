@@ -97,7 +97,7 @@ MonoBehaviour:
   m_MinSize: {x: 725, y: 426}
   m_MaxSize: {x: 4000, y: 4026}
   vertical: 0
-  controlID: 4485
+  controlID: 5275
   draggingID: 0
 --- !u!114 &5
 MonoBehaviour:
@@ -300,7 +300,7 @@ MonoBehaviour:
   - {fileID: 18}
   - {fileID: 22}
   m_Selected: 1
-  m_LastSelected: 0
+  m_LastSelected: 1
 --- !u!114 &13
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -468,7 +468,7 @@ MonoBehaviour:
       scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: 463bfeff7c3cfeff4440feff0642feff7250feffa651feff6e55feff3057feff7467feffaa68feff726cfeff346efeffac80feffe081feffa885feff6a87feff0c96feff4297feff0a9bfeffcc9cfeffb8b0feffecb1feffb4b5feff76b7feffd8cbfeff0ecdfeffe0d0feffa6d2feff6802ffff9c03ffff6407ffff2609ffff6420ffff9a21ffff6c25ffff3227fffff044ffff2446ffffec49ffffae4bffff0e68ffff4469ffff0c6dffffce6effff387dffff6c7effff3482fffff683ffffcecaffff24ccfffff6cfffffbcd1ffff94e5ffffdee6ffffa6eaffff68ecfffff6faffff3eeb00001cec000048390100c4390100a23a0100bc3a0100343b0100b06401008e650100
+      m_ExpandedIDs: 48bcfeff7cbdfeff44c1feff08c3feffccf8feff00fafeffd2fdfeff9afffeff3c2dffff702effff4232ffff0834ffff86aaffffbcabffff84afffff46b1ffff8cbfffffc0c0ffff88c4ffff4ac6ffffc0d4fffff6d5ffffc8d9ffff8edbffff84ecffffb8edffff80f1ffff42f3fffff6faffff86e20000dee20000cee30000940b0100840c0100c4200100b4210100
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -1072,9 +1072,9 @@ MonoBehaviour:
   m_AudioPlay: 0
   m_DebugDrawModesUseInteractiveLightBakingData: 0
   m_Position:
-    m_Target: {x: 514.65857, y: 373.1164, z: -1.2864703}
+    m_Target: {x: 1018.06555, y: 543.30316, z: -3.4356897}
     speed: 2
-    m_Value: {x: 514.65857, y: 373.1164, z: -1.2864703}
+    m_Value: {x: 1018.06555, y: 543.30316, z: -3.4356897}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 2
@@ -1124,9 +1124,9 @@ MonoBehaviour:
     speed: 2
     m_Value: {x: 0, y: 0, z: 0, w: 1}
   m_Size:
-    m_Target: 187.13182
+    m_Target: 402.05292
     speed: 2
-    m_Value: 187.13182
+    m_Value: 402.05292
   m_Ortho:
     m_Target: 1
     speed: 2
@@ -1223,7 +1223,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 393.5}
     m_SelectedIDs: 24cc0000
     m_LastClickedID: 52260
-    m_ExpandedIDs: 0000000016cb000018cb00001acb00001ccb00001ecb000020cb0000
+    m_ExpandedIDs: 0000000022cb000024cb000026cb000028cb00002acb00002ccb0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1252,7 +1252,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 0000000016cb000018cb00001acb00001ccb00001ecb000020cb0000
+    m_ExpandedIDs: 0000000022cb000024cb000026cb000028cb00002acb00002ccb0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1448,7 +1448,7 @@ MonoBehaviour:
   m_SerializedViewNames:
   - UnityEditor.DeviceSimulation.SimulatorWindow
   m_SerializedViewValues:
-  - /Users/red.g/Desktop/CHOGTANKS/chogtanks-alternative-version/Library/PlayModeViewStates/34be529667e5646418abaeb41efea27a
+  - /Users/red.g/Desktop/CHOGTANKS/chogtanks-alternative-version/Library/PlayModeViewStates/b0b2a73a257074f4fb2c8b9dcf0eadd5
   m_PlayModeViewName: GameView
   m_ShowGizmos: 0
   m_TargetDisplay: 0
