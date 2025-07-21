@@ -11,9 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-    <!-- Multisync SDK - VERSION OFFICIELLE -->
-    <script src="https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js"></script>
+    
     
     <!-- Firebase Configuration -->
     <script>
@@ -127,111 +125,12 @@
           document.querySelector("#unity-fullscreen-button").onclick = () => {
             unityInstance.SetFullscreen(1);
           };
-          
-          // INITIALISER MULTISYNC APRÈS UNITY
-          initializeMultisync();
         }).catch((message) => {
           alert(message);
         });
       };
 
       document.body.appendChild(script);
-      
-      // MULTISYNC INTEGRATION CORRECTE
-      function initializeMultisync() {
-        console.log("[Multisync] Initializing with correct Model-View architecture...");
-        
-        // Modèle Multisync pour les événements de jeu
-        class GameModel extends Multisynq.Model {
-          init() {
-            console.log("[Multisync] GameModel initialized");
-            
-            // Souscrire aux événements Unity
-            this.subscribe(this.sessionId, "TakeDamageRPC", this.handleTakeDamage.bind(this));
-            this.subscribe(this.sessionId, "Die", this.handleDie.bind(this));
-            this.subscribe(this.sessionId, "RespawnRPC", this.handleRespawn.bind(this));
-            this.subscribe(this.sessionId, "ShowKillNotificationRPC", this.handleKillNotification.bind(this));
-          }
-          
-          handleTakeDamage(data) {
-            console.log("[Multisync] Handling TakeDamage:", data);
-            // Redistribuer à toutes les vues
-            this.publish(this.sessionId, "TakeDamageRPC", data);
-          }
-          
-          handleDie(data) {
-            console.log("[Multisync] Handling Die:", data);
-            this.publish(this.sessionId, "Die", data);
-          }
-          
-          handleRespawn(data) {
-            console.log("[Multisync] Handling Respawn:", data);
-            this.publish(this.sessionId, "RespawnRPC", data);
-          }
-          
-          handleKillNotification(data) {
-            console.log("[Multisync] Handling KillNotification:", data);
-            this.publish(this.sessionId, "ShowKillNotificationRPC", data);
-          }
-        }
-        
-        // Vue Multisync pour Unity
-        class GameView extends Multisynq.View {
-          constructor(model) {
-            super(model);
-            console.log("[Multisync] GameView initialized");
-            
-            // Souscrire aux événements du modèle
-            this.subscribe(this.sessionId, "TakeDamageRPC", this.forwardToUnity.bind(this));
-            this.subscribe(this.sessionId, "Die", this.forwardToUnity.bind(this));
-            this.subscribe(this.sessionId, "RespawnRPC", this.forwardToUnity.bind(this));
-            this.subscribe(this.sessionId, "ShowKillNotificationRPC", this.forwardToUnity.bind(this));
-          }
-          
-          forwardToUnity(eventName, data) {
-            console.log("[Multisync] Forwarding to Unity:", eventName, data);
-            if (window.unityInstance) {
-              window.unityInstance.SendMessage("NetworkWrapper", "OnMultisyncEventReceived", 
-                JSON.stringify({name: eventName, data: data}));
-            }
-          }
-          
-          // Méthode appelée par Unity pour publier des événements
-          publishFromUnity(eventName, data) {
-            console.log("[Multisync] Publishing from Unity:", eventName, data);
-            this.publish(this.sessionId, eventName, data);
-          }
-        }
-        
-        // Démarrer la session Multisync
-        Multisynq.Session.join({
-          apiKey: "2EFStmbQN74j1jBWeqKHJ2CBhXJKmQ7fsTOLhCx8W7",
-          appId: "com.redgnad.chogtanks",
-          model: GameModel,
-          view: GameView,
-          name: "chogtanks-game",
-          password: ""
-        }).then(session => {
-          console.log("[Multisync] Joined session:", session.id);
-          
-          // Rendre la vue accessible globalement pour Unity
-          window.multisyncView = session.view;
-          
-          // Notifier Unity que Multisync est prêt
-          if (window.unityInstance) {
-            window.unityInstance.SendMessage("NetworkWrapper", "OnMultisyncConnected", "");
-          }
-        }).catch(error => {
-          console.error("[Multisync] Failed to join session:", error);
-        });
-      }
-      
-      // Fonctions globales pour Unity
-      window.PublishMultisyncEvent = function(eventName, data) {
-        if (window.multisyncView) {
-          window.multisyncView.publishFromUnity(eventName, JSON.parse(data));
-        }
-      };
     </script>
   </body>
 </html>
