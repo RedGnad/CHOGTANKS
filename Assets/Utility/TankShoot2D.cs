@@ -1,8 +1,8 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
+public class TankShoot2D : SynqBehaviour
 {
     [Header("Références Visée / Tir")]
     [SerializeField] private Transform cannonPivot;
@@ -35,10 +35,13 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
     private float chargeStartTime = 0f;
     private bool chargeSFXPlayed = false;
 
-    private float lastFireTime = 0f;
+    [SynqVar] private float lastFireTime = 0f;
     private Rigidbody2D rb;
-    private bool isGrounded = false;
+    [SynqVar] private bool isGrounded = false;
     private bool loggedThisShot = false;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
 
     private void Awake()
     {
@@ -51,20 +54,20 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
 
     private void Start()
     {
-        if (!photonView.IsMine)
+        if (!IsMine)
         {
             enabled = false;
             return;
         }
         else
         {
-            Debug.Log("[TankShoot2D] Script actif (tank local) sur " + PhotonNetwork.LocalPlayer.NickName);
+            Debug.Log("[TankShoot2D] Script actif (tank local)");
         }
     }
 
     private void Update()
     {
-        if (!photonView.IsMine || Camera.main == null) return;
+        if (!IsMine || Camera.main == null) return;
 
         Vector3 mouseScreen = Input.mousePosition;
         
@@ -181,16 +184,22 @@ public class TankShoot2D : Photon.Pun.MonoBehaviourPunCallbacks
 
         float shellSpeedFinal = isPrecision ? shellSpeed * precisionShellSpeedMultiplier : shellSpeed;
 
+        FireShellRPC(shootDir, angle, isPrecision, shellSpeedFinal);
+    }
+    
+    [SynqRPC]
+    private void FireShellRPC(Vector2 shootDir, float angle, bool isPrecision, float shellSpeedFinal)
+    {
         Vector3 spawnPos = firePoint.position + (Vector3)(shootDir * 0.2f);
         spawnPos.z = 0f;
-        GameObject shell = PhotonNetwork.Instantiate(shellPrefab.name, spawnPos, Quaternion.Euler(0f, 0f, angle), 0);
+        GameObject shell = Instantiate(shellPrefab, spawnPos, Quaternion.Euler(0f, 0f, angle));
         Rigidbody2D shellRb = shell.GetComponent<Rigidbody2D>();
-        shellRb.linearVelocity = shootDir * shellSpeedFinal;
+        shellRb.velocity = shootDir * shellSpeedFinal;
 
         var shellHandler = shell.GetComponent<ShellCollisionHandler>();
         if (shellHandler != null)
         {
-            shellHandler.photonView.RPC("SetPrecision", RpcTarget.AllBuffered, isPrecision);
+            shellHandler.SetPrecision(isPrecision);
         }
 
     }

@@ -1,10 +1,10 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 using System;
 
-public class PhotonTankSpawner : MonoBehaviourPunCallbacks
+public class PhotonTankSpawner : SynqBehaviour
 {
-    public static event Action<GameObject, PhotonView> OnTankSpawned;
+    public static event Action<GameObject> OnTankSpawned;
     
     [Header("Spawns multiples")]
     public Transform[] spawnPoints; 
@@ -14,10 +14,8 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
 
     private void Start()
     {
-        if (PhotonNetwork.InRoom)
-        {
-            SpawnTank();
-        }
+        // Always spawn tank in Multisync
+        SpawnTank();
     }
 
     public static System.Collections.Generic.Dictionary<int, int> lastSpawnPointByPlayer = 
@@ -39,7 +37,7 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         Vector2 spawnPos = fallbackSpawnPosition;
         if (spawnPoints != null && spawnPoints.Length > 0)
         {
-            int actorNumber = PhotonNetwork.LocalPlayer.ActorNumber;
+            int actorNumber = GetInstanceID(); // Use instance ID as actor number
             int spawnIdx = 0;
             
             if (spawnPoints.Length > 1)
@@ -66,13 +64,13 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
             spawnPos += new Vector2(offsetX, offsetY);
         }
 
-        GameObject tank = PhotonNetwork.Instantiate(tankPrefabName, spawnPos, Quaternion.identity);
-        var view = tank.GetComponent<PhotonView>();
+        GameObject tankPrefab = Resources.Load<GameObject>(tankPrefabName);
+        GameObject tank = Instantiate(tankPrefab, spawnPos, Quaternion.identity);
         
         var nameDisplay = tank.GetComponent<PlayerNameDisplay>();
         if (nameDisplay != null)
         {
-            Debug.Log("[SPAWN DEBUG] PlayerNameDisplay trouvé et configuré pour " + PhotonNetwork.LocalPlayer.NickName);
+            Debug.Log("[SPAWN DEBUG] PlayerNameDisplay trouvé et configuré pour Player " + GetInstanceID());
         }
         else
         {
@@ -80,6 +78,6 @@ public class PhotonTankSpawner : MonoBehaviourPunCallbacks
         }
 
         var lobbyUI = FindObjectOfType<LobbyUI>();
-        OnTankSpawned?.Invoke(tank, view);
+        OnTankSpawned?.Invoke(tank);
     }
 }

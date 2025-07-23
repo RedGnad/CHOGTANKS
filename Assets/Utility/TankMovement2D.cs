@@ -1,8 +1,8 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
+public class TankMovement2D : SynqBehaviour
 {
     [Header("Réglages Mouvement")]
     [SerializeField] private float moveSpeed = 5f;
@@ -35,6 +35,9 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
     private int explosionLockFrames = 0;
     
     private float lastAlignmentTime = 0f;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
 
     private void Awake()
     {
@@ -49,12 +52,12 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
 
     private void Start()
     {
-        if (photonView.IsMine)
+        if (IsMine)
         {
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.constraints = RigidbodyConstraints2D.None;
         }
-        if (!photonView.IsMine)
+        if (!IsMine)
         {
             enabled = false;
             return;
@@ -64,7 +67,7 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
     private float prevHorizontalInput = 0f;
     private void Update()
     {
-        if (!photonView.IsMine) return;
+        if (!IsMine) return;
 
         horizontalInput = Input.GetAxisRaw("Horizontal");
 
@@ -87,7 +90,7 @@ public class TankMovement2D : Photon.Pun.MonoBehaviourPunCallbacks
     private float prevPhysicsInput = 0f;
     private void FixedUpdate()
     {
-        if (!photonView.IsMine) return;
+        if (!IsMine) return;
 
         if (explosionLockFrames > 0)
         {

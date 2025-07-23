@@ -1,0 +1,7 @@
+{
+  "name": "m4u-workspace",
+  "version": "0.1.0",
+  "author": "Multisynq",
+  "description": "",
+  "workspaces": ["Assets/MultisynqJS"]
+}

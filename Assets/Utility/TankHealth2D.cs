@@ -1,17 +1,21 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 using System.Linq;
 using System.Collections;
 
-public class TankHealth2D : MonoBehaviourPun
+public class TankHealth2D : SynqBehaviour
 {
     [Header("Paramètres de santé")]
     [SerializeField] private float maxHealth = 100f;
 
+    [SynqVar] public float currentHealth = 100f;
+    [SynqVar] public bool _isDead = false;
+    [SynqVar] public int lastDamageDealer = -1;
     
-    private float currentHealth = 0f;
-    private bool _isDead = false;
-    private int lastDamageDealer = -1;
+    // Multisync compatibility properties
+    public object Owner => this; // Placeholder for Multisync owner
+    public int ActorNumber => GetInstanceID(); // Use instance ID as actor number
+    public bool IsMine => true; // Placeholder for Multisync ownership
     
     public float CurrentHealth => currentHealth;
     public bool IsDead => _isDead;
@@ -24,7 +28,7 @@ public class TankHealth2D : MonoBehaviourPun
 
     private void Start()
     {
-        if (photonView.IsMine)
+        if (IsMine)
         {
             currentHealth = maxHealth;
             _isDead = false;
@@ -39,7 +43,7 @@ public class TankHealth2D : MonoBehaviourPun
         if (shoot != null) shoot.enabled = true;
     }
 
-    [PunRPC]
+    [SynqRPC]
     public void TakeDamageRPC(float amount, int damageDealer)
     {
         if (_isDead) return;
@@ -55,7 +59,8 @@ public class TankHealth2D : MonoBehaviourPun
             SimpleTankRespawn respawnHandler = GetComponent<SimpleTankRespawn>();
             if (respawnHandler != null)
             {
-                respawnHandler.photonView.RPC("Die", RpcTarget.All, damageDealer);
+                // Use Multisync RPC directly
+                respawnHandler.Die(damageDealer);
             }
             else
             {

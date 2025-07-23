@@ -1,30 +1,29 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 
-public class CannonPivotSync : MonoBehaviourPun, IPunObservable
+public class CannonPivotSync : SynqBehaviour
 {
     [SerializeField] private Transform cannonPivot; 
-    private float networkedZ = 0f;
+    [SynqVar] private float networkedZ = 0f;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
 
     void Update()
     {
-        if (!photonView.IsMine)
+        if (!IsMine)
         {
             Vector3 rot = cannonPivot.localEulerAngles;
             rot.z = Mathf.LerpAngle(rot.z, networkedZ, Time.deltaTime * 10f);
             cannonPivot.localEulerAngles = rot;
         }
-    }
-
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if (stream.IsWriting)
-        {
-            stream.SendNext(cannonPivot.localEulerAngles.z);
-        }
         else
         {
-            networkedZ = (float)stream.ReceiveNext();
+            // Update networked value for owner
+            networkedZ = cannonPivot.localEulerAngles.z;
         }
     }
+
+    // Multisync handles synchronization automatically via [SynqVar]
+    // No manual serialization needed
 }

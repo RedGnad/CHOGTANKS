@@ -1,11 +1,10 @@
 using UnityEngine;
 using TMPro;
-using Photon.Pun;
+using Multisynq;
 using System.Collections;
 using System.Collections.Generic;
-using Photon.Realtime;
 
-public class KillNotificationManager : MonoBehaviourPunCallbacks
+public class KillNotificationManager : SynqBehaviour
 {
     [SerializeField] private TMP_Text killNotificationText;
     [SerializeField] private float notificationDuration = 3f; 
@@ -64,17 +63,11 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
     
     public void ShowKillNotification(int killerActorNumber, int killedActorNumber)
     {
-        if (PhotonNetwork.IsMasterClient)
-        {
-            photonView.RPC("ShowKillNotificationRPC", RpcTarget.All, killerActorNumber, killedActorNumber);
-        }
-        else
-        {
-            ShowKillNotificationLocal(killerActorNumber, killedActorNumber);
-        }
+        // Direct RPC call for Multisync
+        ShowKillNotificationRPC(killerActorNumber, killedActorNumber);
     }
     
-    [PunRPC]
+    [SynqRPC]
     private void ShowKillNotificationRPC(int killerActorNumber, int killedActorNumber)
     {
         ShowKillNotificationLocal(killerActorNumber, killedActorNumber);
@@ -85,17 +78,9 @@ public class KillNotificationManager : MonoBehaviourPunCallbacks
         string killerName = "Unknown";
         string killedName = "Unknown";
         
-        foreach (Player player in PhotonNetwork.PlayerList)
-        {
-            if (player.ActorNumber == killerActorNumber)
-            {
-                killerName = string.IsNullOrEmpty(player.NickName) ? $"Player {killerActorNumber}" : player.NickName;
-            }
-            if (player.ActorNumber == killedActorNumber)
-            {
-                killedName = string.IsNullOrEmpty(player.NickName) ? $"Player {killedActorNumber}" : player.NickName;
-            }
-        }
+        // Simplified player name resolution for Multisync
+        killerName = $"Player {killerActorNumber}";
+        killedName = $"Player {killedActorNumber}";
         
         string notificationText = $"{killerName} shot {killedName}";
         

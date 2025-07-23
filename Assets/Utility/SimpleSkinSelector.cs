@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
-using Photon.Pun;
+using Multisynq;
 
 public class SimpleSkinSelector : MonoBehaviour
 {
@@ -8,7 +8,7 @@ public class SimpleSkinSelector : MonoBehaviour
     [SerializeField] private Button[] skinButtons;
     [SerializeField] private string[] spriteNames;
     
-    private PhotonView localTankView;
+    private TankHealth2D localTank;
     
     private const string SELECTED_SKIN_KEY = "SelectedTankSkin";
     
@@ -49,37 +49,38 @@ public class SimpleSkinSelector : MonoBehaviour
         PlayerPrefs.SetInt(SELECTED_SKIN_KEY, index);
         PlayerPrefs.Save();
         
-        if (localTankView == null)
+        if (localTank == null)
         {
             GameObject[] tanks = GameObject.FindGameObjectsWithTag("Player");
             foreach (var tank in tanks)
             {
-                PhotonView view = tank.GetComponent<PhotonView>();
-                if (view && view.IsMine)
+                TankHealth2D tankHealth = tank.GetComponent<TankHealth2D>();
+                if (tankHealth && tankHealth.IsMine)
                 {
-                    localTankView = view;
+                    localTank = tankHealth;
                     break;
                 }
             }
         }
         
-        if (localTankView != null)
+        if (localTank != null)
         {
-            TankAppearanceHandler handler = localTankView.GetComponent<TankAppearanceHandler>();
+            TankAppearanceHandler handler = localTank.GetComponent<TankAppearanceHandler>();
             if (handler != null)
             {
-                localTankView.RPC("ChangeTankSprite", RpcTarget.AllBuffered, spriteNames[index]);
+                handler.ChangeTankSprite(spriteNames[index]);
             }
         }
         
         if (skinPanel) skinPanel.SetActive(false);
     }
     
-    private void OnTankSpawned(GameObject tank, PhotonView view)
+    private void OnTankSpawned(GameObject tank)
     {
-        if (view.IsMine)
+        TankHealth2D tankHealth = tank.GetComponent<TankHealth2D>();
+        if (tankHealth && tankHealth.IsMine)
         {
-            localTankView = view;
+            localTank = tankHealth;
             
             TankAppearanceHandler handler = tank.GetComponent<TankAppearanceHandler>();
             if (handler != null)
@@ -88,7 +89,7 @@ public class SimpleSkinSelector : MonoBehaviour
                 if (savedSkinIndex >= 0 && savedSkinIndex < spriteNames.Length)
                 {
                     Debug.Log($"[SKIN] Application du skin sauvegardé: {spriteNames[savedSkinIndex]}");
-                    view.RPC("ChangeTankSprite", RpcTarget.AllBuffered, spriteNames[savedSkinIndex]);
+                    handler.ChangeTankSprite(spriteNames[savedSkinIndex]);
                 }
             }
         }

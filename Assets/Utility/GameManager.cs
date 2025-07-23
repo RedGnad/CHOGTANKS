@@ -1,7 +1,6 @@
 using UnityEngine;
-using Photon.Pun;
 
-public class GameManager : MonoBehaviourPunCallbacks
+public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     
@@ -27,7 +26,7 @@ public class GameManager : MonoBehaviourPunCallbacks
         isGameOver = true;
     }
     
-    public override void OnLeftRoom()
+    public void ResetGameState()
     {
         isGameOver = false;
     }

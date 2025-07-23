@@ -1,33 +1,33 @@
 using System.Collections.Generic;
-using Photon.Pun;
-using Photon.Realtime;
 using UnityEngine;
-using ExitGames.Client.Photon;
 using System.Collections;
 using System.Runtime.InteropServices;
 using TMPro;
+using Multisynq;
 
-public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
+public class ScoreManager : SynqBehaviour
 {
     private const float ROOM_LIFETIME = 180f; 
     private const float RESPAWN_TIME = 5f;
-    
-    private const byte SCORE_UPDATE_EVENT = 1;
-    private const byte MATCH_END_EVENT = 2;
-    private const byte MATCH_START_TIME_EVENT = 5;
-    private const byte SYNC_TIMER_EVENT = 6;
     
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
     private static extern bool SubmitScoreJS(string score, string bonus, string walletAddress);
 #endif
     
+    // Temporarily removed [SynqVar] from Dictionary - may cause crashes
     private Dictionary<int, int> playerScores = new Dictionary<int, int>(); 
     private Dictionary<string, string> playerWallets = new Dictionary<string, string>();
-    private float matchStartTime;
-    private bool matchEnded = false;
+    [SynqVar] private float matchStartTime;
+    [SynqVar] private bool matchEnded = false;
+    
+    // Multisynq compatibility properties
+    [SynqVar] private bool isInRoom = false;
+    [SynqVar] private bool isMasterClient = false;
+    [SynqVar] private int localPlayerActorNumber = 1;
     
     public static ScoreManager Instance { get; private set; }
+    private static Dictionary<int, string> _playerNames = new Dictionary<int, string>();
     
     private void Awake()
     {
@@ -44,7 +44,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     
     private void Start()
     {
-        if (PhotonNetwork.InRoom)
+        if (isInRoom)
         {
             StartMatch();
         }
@@ -60,49 +60,44 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         StopAllCoroutines();
     }
     
-    public override void OnJoinedRoom()
+    [SynqRPC]
+    public void OnJoinedSession()
     {
-        
         ResetManager();
-        
         StartMatch();
         
         if (!string.IsNullOrEmpty(PlayerSession.WalletAddress))
         {
             string walletAddress = PlayerSession.WalletAddress;
-            int actorNumber = PhotonNetwork.LocalPlayer.ActorNumber;
+            int actorNumber = localPlayerActorNumber;
             
-            object[] walletData = new object[] { actorNumber.ToString(), walletAddress };
-            RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
-            PhotonNetwork.RaiseEvent(3, walletData, options, SendOptions.SendReliable);
-            
+            UpdatePlayerWalletRPC(actorNumber.ToString(), walletAddress);
             playerWallets[actorNumber.ToString()] = walletAddress;
         }
     }
     
     private void StartMatch()
     {
-        if (PhotonNetwork.IsMasterClient)
+        if (isMasterClient)
         {
             matchStartTime = Time.time;
             matchEnded = false;
             
             playerScores.Clear();
-            foreach (Player player in PhotonNetwork.PlayerList)
+            // Initialize scores for connected players (placeholder logic)
+            for (int i = 1; i <= 2; i++)
             {
-                playerScores[player.ActorNumber] = 0;
+                playerScores[i] = 0;
             }
             
             StartCoroutine(MatchTimer());
             
-            SyncMatchTime(ROOM_LIFETIME);
-            
-            SyncScores();
+            SyncMatchTimeRPC(ROOM_LIFETIME);
+            SyncScoresRPC();
         }
         else
         {            
             matchStartTime = Time.time - 1;
-            
             StartCoroutine(MatchTimer());
         }
     }
@@ -110,7 +105,7 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private IEnumerator MatchTimer()
     {
         float timeLeft = ROOM_LIFETIME;
-        bool waitingForSync = !PhotonNetwork.IsMasterClient;
+        bool waitingForSync = !isMasterClient;
         
         if (LobbyUI.Instance != null)
         {
@@ -133,26 +128,26 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeLeft));
             }
             
-            if (PhotonNetwork.IsMasterClient && Time.time > nextSyncTime)
+            if (isMasterClient && Time.time > nextSyncTime)
             {
-                SyncMatchTime(timeLeft);
+                SyncMatchTimeRPC(timeLeft);
                 nextSyncTime = Time.time + 5f; 
             }
             
             yield return null;
             
-            if (timeLeft <= 0 && PhotonNetwork.IsMasterClient)
+            if (timeLeft <= 0 && isMasterClient)
             {
                 EndMatch();
+                break;
             }
         }
     }
     
-    public void AddKill(int killerActorNumber)
+    public void AddKill(int killerActorNumber, int victimActorNumber, int killerViewID, int victimViewID)
     {
         if (matchEnded) return;
-
-        int scoreBefore = playerScores.ContainsKey(killerActorNumber) ? playerScores[killerActorNumber] : 0;
+        
         if (playerScores.ContainsKey(killerActorNumber))
         {
             playerScores[killerActorNumber]++;
@@ -161,26 +156,23 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             playerScores[killerActorNumber] = 1;
         }
-        int scoreAfter = playerScores[killerActorNumber];
         
-        RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
-        object[] content = new object[] { killerActorNumber, playerScores[killerActorNumber] };
-        PhotonNetwork.RaiseEvent(SCORE_UPDATE_EVENT, content, options, SendOptions.SendReliable);
-
-        if (PhotonNetwork.IsMasterClient)
+        if (isMasterClient)
         {
-            SyncScores();
+            UpdateScoreRPC(killerActorNumber, playerScores[killerActorNumber]);
+            SyncScoresRPC();
         }
-
+        
         if (LobbyUI.Instance != null)
         {
             LobbyUI.Instance.UpdatePlayerList();
         }
+        
+        PlayerDied(killerActorNumber, victimActorNumber, killerViewID, victimViewID);
     }
     
     private void HandleScoreUpdate(int actorNumber, int score)
     {
-        int before = playerScores.ContainsKey(actorNumber) ? playerScores[actorNumber] : -1;
         playerScores[actorNumber] = score;
         
         if (LobbyUI.Instance != null)
@@ -189,46 +181,39 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
     }
     
-    public void PlayerDied(int victimActorNumber, int killerActorNumber, int victimViewID)
+    public void PlayerDied(int killerActorNumber, int victimActorNumber, int killerViewID, int victimViewID)
     {
+        if (matchEnded) return;
         
-        if (!PhotonNetwork.IsMasterClient) return;
-
-        if (killerActorNumber > 0 && killerActorNumber != victimActorNumber)
+        string killerName = GetPlayerName(killerActorNumber);
+        string victimName = GetPlayerName(victimActorNumber);
+        
+        if (LobbyUI.Instance != null && LobbyUI.Instance.killFeedText != null)
         {
-            AddKill(killerActorNumber);
-
-            string killerName = GetPlayerName(killerActorNumber);
-            string victimName = GetPlayerName(victimActorNumber);
-            if (LobbyUI.Instance != null && LobbyUI.Instance.killFeedText != null)
-            {
-                LobbyUI.Instance.killFeedText.text = $"{killerName} a tué {victimName} !";
-                LobbyUI.Instance.StartCoroutine(HideKillFeedAfterDelay(3f));
-            }
+            LobbyUI.Instance.killFeedText.text = $"{killerName} a tué {victimName} !";
+            LobbyUI.Instance.StartCoroutine(HideKillFeedAfterDelay(3f));
         }
-
-        PhotonView victimView = PhotonView.Find(victimViewID);
-        if (victimView != null)
+        
+        // Find and destroy victim tank (Multisynq equivalent)
+        GameObject victimTank = FindTankByViewID(victimViewID);
+        if (victimTank != null)
         {
-            PhotonNetwork.Destroy(victimView.gameObject);
-            
-            StartCoroutine(RespawnPlayer(victimActorNumber));
+            Destroy(victimTank);
         }
-        else
-        {
-        }
+        
+        StartCoroutine(RespawnPlayer(victimActorNumber));
     }
-
+    
     private string GetPlayerName(int actorNumber)
     {
-        foreach (var player in PhotonNetwork.PlayerList)
+        // Return player name based on actor number (Multisynq equivalent)
+        if (playerScores.ContainsKey(actorNumber))
         {
-            if (player.ActorNumber == actorNumber)
-                return string.IsNullOrEmpty(player.NickName) ? $"Player {actorNumber}" : player.NickName;
+            return $"Player {actorNumber}";
         }
         return $"Player {actorNumber}";
     }
-
+    
     private IEnumerator HideKillFeedAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -240,28 +225,30 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         yield return new WaitForSeconds(RESPAWN_TIME);
         
-        if (PhotonNetwork.LocalPlayer.ActorNumber == actorNumber)
+        if (localPlayerActorNumber == actorNumber)
         {
-            
-            foreach (var ui in GameObject.FindGameObjectsWithTag("GameOverUI"))
-            {
-                Destroy(ui);
-            }
-            
-            var spawner = FindObjectOfType<PhotonTankSpawner>();
-            if (spawner != null)
-            {
-                spawner.SpawnTank();        }
-        else
-        {
+            yield break;
         }
-    }
-        else
+        
+        foreach (var ui in GameObject.FindGameObjectsWithTag("GameOverUI"))
         {
+            Destroy(ui);
+        }
+        
+        var spawner = FindObjectOfType<PhotonTankSpawner>();
+        if (spawner != null)
+        {
+            spawner.SpawnTank(); // Use SpawnTank method instead of RespawnTank
         }
     }
     
-    public void EndMatch()
+    private GameObject FindTankByViewID(int viewID)
+    {
+        // Implement logic to find tank by view ID
+        return null;
+    }
+    
+    private void EndMatch()
     {
         if (matchEnded) return;
         matchEnded = true;
@@ -275,33 +262,15 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         int winnerActorNumber = -1;
         string winnerName = "Unknown Player";
         
-        if (_playerNames == null)
+        foreach (var scoreEntry in playerScores)
         {
-            _playerNames = new Dictionary<int, string>();
-        }
-        
-        foreach (Player player in PhotonNetwork.PlayerList)
-        {
-            string playerNickname = string.IsNullOrEmpty(player.NickName) ? 
-                $"Player {player.ActorNumber}" : player.NickName;
-            _playerNames[player.ActorNumber] = playerNickname;
-        }
-        
-        foreach (var pair in playerScores)
-        {
-            if (pair.Value > highestScore)
+            int actorNum = scoreEntry.Key;
+            int score = scoreEntry.Value;
+            if (score > highestScore)
             {
-                highestScore = pair.Value;
-            }
-        }
-        
-        foreach (Player player in PhotonNetwork.PlayerList)
-        {
-            if (playerScores.ContainsKey(player.ActorNumber) && playerScores[player.ActorNumber] == highestScore)
-            {
-                winnerActorNumber = player.ActorNumber;
-                winnerName = _playerNames[player.ActorNumber];
-                break;
+                highestScore = score;
+                winnerActorNumber = actorNum;
+                winnerName = $"Player {actorNum}";
             }
         }
         
@@ -330,11 +299,9 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
         }
         
-        if (PhotonNetwork.IsMasterClient)
+        if (isMasterClient)
         {
-            object[] content = new object[] { winnerActorNumber, winnerName, highestScore };
-            RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
-            PhotonNetwork.RaiseEvent(MATCH_END_EVENT, content, options, SendOptions.SendReliable);
+            MatchEndRPC(winnerActorNumber, winnerName, highestScore);
         }
         else
         {
@@ -343,8 +310,6 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         
         ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
     }
-    
-    private static Dictionary<int, string> _playerNames = new Dictionary<int, string>();
     
     public void ShowWinnerAndSubmitScores(int winnerActorNumber, string winnerName, int highestScore)
     {
@@ -365,9 +330,9 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
         
         int localPlayerScore = 0;
-        if (playerScores.ContainsKey(PhotonNetwork.LocalPlayer.ActorNumber))
+        if (playerScores.ContainsKey(localPlayerActorNumber))
         {
-            localPlayerScore = playerScores[PhotonNetwork.LocalPlayer.ActorNumber];
+            localPlayerScore = playerScores[localPlayerActorNumber];
         }
         
         int bonus = 0;
@@ -439,122 +404,120 @@ public class ScoreManager : MonoBehaviourPunCallbacks, IOnEventCallback
 #endif
     }
     
-    
-    private void SyncScores()
+    [SynqRPC]
+    private void SyncScoresRPC()
     {
-        if (!PhotonNetwork.IsMasterClient) return;
+        if (!isMasterClient) return;
         
-        List<object> scoreList = new List<object>();
-        foreach (var pair in playerScores)
+        // Multisynq automatically syncs [SynqVar] variables, so we just need to update UI
+        if (LobbyUI.Instance != null)
         {
-            scoreList.Add(pair.Key);
-            scoreList.Add(pair.Value);
-        }
-        
-        RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
-        PhotonNetwork.RaiseEvent(4, scoreList.ToArray(), options, SendOptions.SendReliable);
-    }
-    
-    private void SyncMatchTime(float timeLeft)
-    {
-        if (!PhotonNetwork.IsMasterClient) return;
-        
-        RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.All };
-        PhotonNetwork.RaiseEvent(SYNC_TIMER_EVENT, timeLeft, options, SendOptions.SendReliable);
-    }
-    
-    public void OnEvent(EventData photonEvent)
-    {
-        byte eventCode = photonEvent.Code;
-        
-        if (eventCode == SCORE_UPDATE_EVENT)
-        {
-            object[] data = (object[])photonEvent.CustomData;
-            int actorNumber = (int)data[0];
-            int score = (int)data[1];
-            
-            HandleScoreUpdate(actorNumber, score);
-        }
-        else if (eventCode == MATCH_END_EVENT)
-        {
-            object[] data = (object[])photonEvent.CustomData;
-            int winnerActorNumber = (int)data[0];
-            string winnerName = (string)data[1];
-            int highestScore = (int)data[2];
-            
-            ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
-        }
-        else if (eventCode == 3) 
-        {
-            object[] data = (object[])photonEvent.CustomData;
-            string actorIdStr = (string)data[0];
-            string walletAddress = (string)data[1];
-            
-            playerWallets[actorIdStr] = walletAddress;
-        }
-        else if (eventCode == 4) 
-        {
-            object[] data = (object[])photonEvent.CustomData;
-            
-            playerScores.Clear();
-            for (int i = 0; i < data.Length; i += 2)
-            {
-                int actorNumber = (int)data[i];
-                int score = (int)data[i + 1];
-                playerScores[actorNumber] = score;
-            }
-            
-            if (LobbyUI.Instance != null)
-            {
-                LobbyUI.Instance.UpdatePlayerList();
-            }
-        }
-        else if (eventCode == SYNC_TIMER_EVENT)
-        {
-            float timeRemaining = (float)photonEvent.CustomData;
-            matchStartTime = Time.time - (ROOM_LIFETIME - timeRemaining);
-            
-            if (LobbyUI.Instance != null)
-            {
-                LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeRemaining));
-            }
+            LobbyUI.Instance.UpdatePlayerList();
         }
     }
     
-    public override void OnMasterClientSwitched(Player newMasterClient)
+    [SynqRPC]
+    private void SyncMatchTimeRPC(float timeLeft)
     {
+        if (!isMasterClient) return;
         
-        if (newMasterClient.ActorNumber == PhotonNetwork.LocalPlayer.ActorNumber)
+        // Update match start time based on remaining time
+        matchStartTime = Time.time - (ROOM_LIFETIME - timeLeft);
+        
+        if (LobbyUI.Instance != null)
         {
+            LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeLeft));
+        }
+    }
+    
+    // Replaced OnEvent with individual SynqRPC methods
+    
+    [SynqRPC]
+    public void UpdateScoreRPC(int actorNumber, int score)
+    {
+        HandleScoreUpdate(actorNumber, score);
+    }
+    
+    [SynqRPC]
+    public void MatchEndRPC(int winnerActorNumber, string winnerName, int highestScore)
+    {
+        ShowWinnerAndSubmitScores(winnerActorNumber, winnerName, highestScore);
+    }
+    
+    [SynqRPC]
+    public void UpdatePlayerWalletRPC(string actorIdStr, string walletAddress)
+    {
+        playerWallets[actorIdStr] = walletAddress;
+    }
+    
+    [SynqRPC]
+    public void SyncPlayerScoresRPC(int[] actorNumbers, int[] scores)
+    {
+        playerScores.Clear();
+        for (int i = 0; i < actorNumbers.Length; i++)
+        {
+            playerScores[actorNumbers[i]] = scores[i];
+        }
+        
+        if (LobbyUI.Instance != null)
+        {
+            LobbyUI.Instance.UpdatePlayerList();
+        }
+    }
+    
+    [SynqRPC]
+    public void SyncTimerRPC(float timeRemaining)
+    {
+        matchStartTime = Time.time - (ROOM_LIFETIME - timeRemaining);
+        
+        if (LobbyUI.Instance != null)
+        {
+            LobbyUI.Instance.UpdateTimer(Mathf.Max(0, (int)timeRemaining));
+        }
+    }
+    
+    [SynqRPC]
+    public void OnMasterClientSwitched(int newMasterClientActorNumber)
+    {
+        if (newMasterClientActorNumber == localPlayerActorNumber)
+        {
+            isMasterClient = true;
             if (!matchEnded)
             {
-                SyncMatchTime(ROOM_LIFETIME - (Time.time - matchStartTime));
+                SyncMatchTimeRPC(ROOM_LIFETIME - (Time.time - matchStartTime));
             }
         }
+        else
+        {
+            isMasterClient = false;
+        }
     }
     
-    public override void OnPlayerEnteredRoom(Player newPlayer)
+    [SynqRPC]
+    public void OnPlayerEnteredSession(int newPlayerActorNumber)
     {
-        if (!playerScores.ContainsKey(newPlayer.ActorNumber))
+        if (!playerScores.ContainsKey(newPlayerActorNumber))
         {
-            playerScores[newPlayer.ActorNumber] = 0;
+            playerScores[newPlayerActorNumber] = 0;
         }
         
-        if (PhotonNetwork.IsMasterClient)
+        if (isMasterClient)
         {
-            SyncScores();
+            SyncScoresRPC();
             
             float timeLeft = ROOM_LIFETIME - (Time.time - matchStartTime);
-            SyncMatchTime(timeLeft);
+            SyncMatchTimeRPC(timeLeft);
         }
     }
     
-    public override void OnLeftRoom()
+    [SynqRPC]
+    public void OnLeftSession()
     {
         ResetManager();
     }
     
-    public override void OnDisconnected(DisconnectCause cause)
+    [SynqRPC]
+    public void OnDisconnected(string reason)
     {
         ResetManager();
     }

@@ -1,12 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using Photon.Pun;
-using Photon.Realtime;
+using Multisynq;
 using System.Text;
 using System.Collections.Generic;
 
-public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
+public class LobbyUI : SynqBehaviour
 {
     public static LobbyUI Instance { get; private set; }
     
@@ -32,6 +31,12 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     public TMP_Text roomStatusText;
 
     private PhotonLauncher launcher;
+    
+    // Multisynq session management
+    [SynqVar] private bool isConnectedAndReady = false;
+    [SynqVar] private bool isInRoom = false;
+    [SynqVar] private int playerCount = 0;
+    [SynqVar] private string currentRoomCode = "";
 
     private void Awake()
     {
@@ -101,12 +106,12 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     
     private void OnEnable()
     {
-        PhotonNetwork.AddCallbackTarget(this);
+        // Multisynq session callbacks will be handled differently
     }
     
     private void OnDisable()
     {
-        PhotonNetwork.RemoveCallbackTarget(this);
+        // Multisynq cleanup
     }
 
     private void OnPlayerNameEndEdit(string newName)
@@ -132,9 +137,9 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         
         UpdateMainScreenPlayerName();
         
-        if (launcher.isConnectedAndReady)
+        if (isConnectedAndReady)
         {
-            OnPhotonReady();
+            OnMultisynqReady();
         }
     }
 
@@ -162,7 +167,7 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
 
     void OnGoButtonClicked()
     {
-        launcher.JoinRandomPublicRoom();
+        JoinRandomRoomRPC();
         joinPanel.SetActive(false);
         waitingPanel.SetActive(true);
         
@@ -175,17 +180,41 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
 
-    public void OnPhotonReady()
+    public void OnMultisynqReady()
     {
-        if (!string.IsNullOrEmpty(PhotonNetwork.NickName))
+        createRoomButton.interactable = true;
+        joinRoomButton.interactable = true;
+        
+        if (createdCodeText != null)
         {
-            createRoomButton.interactable = true;
-            joinRoomButton.interactable = true;
-            if (goButton != null) {
-                goButton.interactable = true;
-                var goText = goButton.GetComponentInChildren<TMP_Text>();
-                if (goText != null) goText.text = "Brawl";
-            }
+            createdCodeText.text = "Ready to play!";
+        }
+        
+        if (goButton != null && isInRoom)
+        {
+            var goText = goButton.GetComponentInChildren<TMP_Text>();
+            if (goText != null) goText.text = "GO!";
+            goButton.interactable = true;
+        }
+    }
+
+    public void OnJoinedRoomUI()
+    {
+        joinPanel.SetActive(false);
+        waitingPanel.SetActive(true);
+        
+        if (createdCodeText != null)
+        {
+            createdCodeText.text = "Room Code: " + currentRoomCode;
+        }
+        
+        UpdatePlayerList();
+        
+        if (goButton != null)
+        {
+            var goText = goButton.GetComponentInChildren<TMP_Text>();
+            if (goText != null) goText.text = "GO!";
+            goButton.interactable = true;
         }
     }
 
@@ -234,7 +263,7 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
 
     public void UpdatePlayerList()
     {
-        if (playerListText == null || PhotonNetwork.CurrentRoom == null)
+        if (playerListText == null || !isInRoom)
         {
             if(playerListText != null) playerListText.text = "";
             return;
@@ -243,16 +272,11 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         StringBuilder sb = new StringBuilder();
         Dictionary<int, int> playerScores = ScoreManager.Instance ? ScoreManager.Instance.GetPlayerScores() : new Dictionary<int, int>();
         
-        foreach (Player p in PhotonNetwork.PlayerList)
+        // For now, show placeholder player info until we implement proper Multisynq player management
+        for (int i = 1; i <= playerCount; i++)
         {
-            string playerName = string.IsNullOrEmpty(p.NickName) ? $"Player {p.ActorNumber}" : p.NickName;
-            int score = 0;
-            
-            if (playerScores.ContainsKey(p.ActorNumber))
-            {
-                score = playerScores[p.ActorNumber];
-            }
-            
+            string playerName = $"Player {i}";
+            int score = playerScores.ContainsKey(i) ? playerScores[i] : 0;
             sb.AppendLine($"{playerName} - {score} pts");
         }
         
@@ -281,9 +305,9 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
 
     public void OnBackToLobby()
     {
-        if (PhotonNetwork.InRoom)
+        if (isInRoom)
         {
-            PhotonNetwork.LeaveRoom();
+            LeaveSessionRPC();
         }
         joinPanel.SetActive(true);
         waitingPanel.SetActive(false);
@@ -298,17 +322,17 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
 
     public void HideWaitingForPlayerTextIfRoomFull()
     {
-        if (PhotonNetwork.CurrentRoom != null && waitingForPlayerText != null)
+        if (isInRoom && waitingForPlayerText != null)
         {
-            waitingForPlayerText.gameObject.SetActive(PhotonNetwork.CurrentRoom.PlayerCount < 2);
+            waitingForPlayerText.gameObject.SetActive(playerCount < 2);
         }
     }
 
     public void ShowWaitingForPlayerTextIfNotFull()
     {
-        if (PhotonNetwork.CurrentRoom != null && waitingForPlayerText != null)
+        if (isInRoom && waitingForPlayerText != null)
         {
-            waitingForPlayerText.gameObject.SetActive(PhotonNetwork.CurrentRoom.PlayerCount < 2);
+            waitingForPlayerText.gameObject.SetActive(playerCount < 2);
         }
     }
     
@@ -350,7 +374,7 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
         UpdateMainScreenPlayerName();
     }
     
-    public void OnFriendListUpdate(System.Collections.Generic.List<FriendInfo> friendList) { }
+    // Photon friend list functionality removed - not needed for Multisynq
     public void OnCreatedRoom() { }
     public void OnCreateRoomFailed(short returnCode, string message) { }
     public void OnJoinedRoom() { }
@@ -361,13 +385,41 @@ public class LobbyUI : MonoBehaviourPun, IMatchmakingCallbacks
     {
         if (mainScreenPlayerNameText != null)
         {
-            string playerName = PhotonNetwork.NickName;
+            string playerName = playerNameInput != null ? playerNameInput.text : "";
             if (string.IsNullOrEmpty(playerName))
             {
                 playerName = "Newbie_" + Random.Range(100, 999);
             }
             
             mainScreenPlayerNameText.text = " " + playerName;
+        }
+    }
+    
+    // Multisynq RPC methods
+    [SynqRPC]
+    private void LeaveSessionRPC()
+    {
+        isInRoom = false;
+        playerCount = 0;
+        currentRoomCode = "";
+    }
+    
+    [SynqRPC]
+    public void UpdateSessionState(bool inRoom, int players, string roomCode)
+    {
+        isInRoom = inRoom;
+        playerCount = players;
+        currentRoomCode = roomCode;
+        UpdatePlayerList();
+    }
+    
+    [SynqRPC]
+    private void JoinRandomRoomRPC()
+    {
+        // Placeholder for Multisynq random room joining logic
+        if (launcher != null)
+        {
+            launcher.JoinRandomPublicRoom();
         }
     }
 }

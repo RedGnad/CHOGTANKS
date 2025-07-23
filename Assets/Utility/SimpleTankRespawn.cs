@@ -1,17 +1,23 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Photon.Pun;
-using Photon.Realtime;
+using Multisynq;
 using UnityEngine;
 
-public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
+public class SimpleTankRespawn : SynqBehaviour
 {
     [Header("Respawn")]
     [SerializeField] private float respawnTime = 5f;
     [SerializeField] public GameObject gameOverUIPrefab; 
     
-    private bool isDead = false;
+    [SynqVar] public bool isDead = false;
+    private LobbyUI lobbyUI;
+    
+    // Multisync compatibility properties
+    public object Owner => this; // Placeholder for Multisync owner
+    public int ActorNumber => GetInstanceID(); // Use instance ID as actor number
+    public bool IsMine => true; // Placeholder for Multisync ownership
+    
     private GameObject gameOverUI;
     
     private List<Renderer> renderers;
@@ -32,11 +38,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
     private void Start()
     {
         InitializeComponents();
-        
-        PhotonNetwork.AddCallbackTarget(this);
-        
         isDead = false;
-        
     }
     
     private void InitializeComponents()
@@ -47,18 +49,13 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         
         if (renderers.Count == 0)
         {
-            Debug.LogWarning($"[TANK] Aucun renderer trouvé pour {photonView.Owner?.NickName}");
+            Debug.LogWarning($"[TANK] Aucun renderer trouvé pour {Owner?.ToString()}");
         }
         
         if (colliders.Count == 0)
         {
-            Debug.LogWarning($"[TANK] Aucun collider trouvé pour {photonView.Owner?.NickName}");
+            Debug.LogWarning($"[TANK] Aucun collider trouvé pour {Owner?.ToString()}");
         }
-    }
-    
-    private void OnDestroy()
-    {
-        PhotonNetwork.RemoveCallbackTarget(this);
     }
     
     public void ResetTankState()
@@ -104,14 +101,8 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             }
             else
             {
-                Debug.LogWarning($"[TANK] Impossible de trouver TankHealth2D pour {photonView.Owner?.NickName}");
+                Debug.LogWarning($"[TANK] Impossible de trouver TankHealth2D pour {Owner?.ToString()}");
             }
-        }
-        
-        
-        if (TankComponentAdder.Instance != null && PhotonNetwork.IsConnected)
-        {
-            Debug.Log($"[TANK] Vérification des composants via TankComponentAdder pour {photonView.Owner?.NickName}");
         }
     }
     
@@ -153,18 +144,16 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
 
+    private void OnDestroy()
+    {
+    }
+    
     public void OnLeftRoom()
     {
         ResetTankState();
     }
     
-    public void OnFriendListUpdate(List<FriendInfo> friendList) { /* Non utilisé */ }
-    public void OnCreatedRoom() { /* Non utilisé */ }
-    public void OnCreateRoomFailed(short returnCode, string message) { /* Non utilisé */ }
-    public void OnJoinRoomFailed(short returnCode, string message) { /* Non utilisé */ }
-    public void OnJoinRandomFailed(short returnCode, string message) { /* Non utilisé */ }
-    
-    [PunRPC]
+    [SynqRPC]
     public void Die(int killerActorNumber)
     {
         if (isDead)
@@ -182,12 +171,12 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         SetTankActive(false);
         
         
-        if (PhotonNetwork.IsConnected && killerActorNumber > 0 && killerActorNumber != photonView.OwnerActorNr)
+        if (killerActorNumber > 0 && killerActorNumber != ActorNumber)
         {
             
             if (ScoreManager.Instance != null)
             {
-                ScoreManager.Instance.AddKill(killerActorNumber);
+                ScoreManager.Instance.AddKill(killerActorNumber, ActorNumber, killerActorNumber, ActorNumber);
             }
             else
             {
@@ -198,7 +187,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             KillNotificationManager killManager = KillNotificationManager.Instance;
             if (killManager != null)
             {
-                killManager.ShowKillNotification(killerActorNumber, photonView.Owner.ActorNumber);
+                killManager.ShowKillNotification(killerActorNumber, ActorNumber);
             }
             else
             {
@@ -206,7 +195,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             }
         }
 
-        if (photonView.IsMine)
+        if (IsMine)
         {
             ShowGameOverUI();
             
@@ -268,7 +257,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         if (spawner != null && spawner.spawnPoints != null && spawner.spawnPoints.Length > 0)
         {
             
-            int actorNumber = photonView.OwnerActorNr;
+            int actorNumber = ActorNumber;
             int spawnIdx = 0;
             
             if (spawner.spawnPoints.Length > 1)
@@ -297,7 +286,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             }
             else
             {
-                Debug.Log($"[RESPAWN] Un seul point de spawn disponible");
+                Debug.Log($"[RESPAWN] Owner: {Owner?.ToString() ?? "null"}");
             }
             
             respawnPosition = spawner.spawnPoints[spawnIdx].position;
@@ -312,7 +301,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
             Debug.LogWarning($"[RESPAWN] Spawner non trouvé ou pas de points de spawn!");
         }
         
-        photonView.RPC("RespawnRPC", RpcTarget.All, respawnPosition.x, respawnPosition.y, respawnPosition.z);
+        RespawnRPC(respawnPosition.x, respawnPosition.y, respawnPosition.z);
         
         if (gameOverUI != null)
         {
@@ -321,8 +310,8 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
     
-    [PunRPC]
-    public void RespawnRPC(float x, float y, float z, PhotonMessageInfo info)
+    [SynqRPC]
+    public void RespawnRPC(float x, float y, float z)
     {
         if (GameManager.Instance != null && GameManager.Instance.isGameOver)
         {
@@ -378,7 +367,7 @@ public class SimpleTankRespawn : MonoBehaviourPun, IMatchmakingCallbacks
         }
     }
     
-    [PunRPC]
+    [SynqRPC]
     public void ShowWinnerUI(string winnerName)
     {
         if (GameManager.Instance != null)

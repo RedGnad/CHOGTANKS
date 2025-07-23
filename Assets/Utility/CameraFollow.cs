@@ -1,5 +1,5 @@
 using UnityEngine;
-using Photon.Pun;
+using Multisynq;
 
 public class CameraFollow : MonoBehaviour
 {
@@ -49,12 +49,12 @@ public class CameraFollow : MonoBehaviour
 
         private void FindPlayerInstance()
     {
-        PhotonView[] photonViews = FindObjectsOfType<PhotonView>();
-        foreach (PhotonView pv in photonViews)
+        TankHealth2D[] tanks = FindObjectsOfType<TankHealth2D>();
+        foreach (TankHealth2D tank in tanks)
         { 
-            if (pv.IsMine && pv.CompareTag("Player"))
+            if (tank.IsMine && tank.CompareTag("Player"))
             {
-                target = pv.transform;
+                target = tank.transform;
                 return;
             }
         }

@@ -6,3 +6,11 @@ Update Mode: updateDependencies
 
 The following packages were added:
   com.unity.modules.accessibility@1.0.0
+
+=== Tue Jul 22 04:41:17 2025
+
+Packages were changed.
+Update Mode: updateDependencies
+
+The following packages were added:
+  com.unity.ai.navigation@1.1.5

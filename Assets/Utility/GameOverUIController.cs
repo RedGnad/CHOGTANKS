@@ -2,9 +2,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
-using Photon.Pun;
+using Multisynq;
 
-public class GameOverUIController : MonoBehaviourPunCallbacks
+public class GameOverUIController : SynqBehaviour
 {
     [SerializeField] private TextMeshProUGUI gameOverText;
     [SerializeField] private TextMeshProUGUI winText;
@@ -92,7 +92,7 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
         }
     }
     
-    private class LobbySceneLoader : MonoBehaviourPunCallbacks
+    private class LobbySceneLoader : MonoBehaviour
     {
         private string _lobbySceneName;
         
@@ -101,11 +101,9 @@ public class GameOverUIController : MonoBehaviourPunCallbacks
             _lobbySceneName = lobbySceneName;
         }
         
-        public override void OnLeftRoom()
+        public void OnLeftSession()
         {
             UnityEngine.SceneManagement.SceneManager.LoadScene(_lobbySceneName);
-            
-            PhotonNetwork.RemoveCallbackTarget(this);
         }
     }
     

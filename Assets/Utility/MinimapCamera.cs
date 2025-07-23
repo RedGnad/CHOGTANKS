@@ -1,5 +1,4 @@
 using UnityEngine;
-using Photon.Pun;
 
 public class MinimapCamera : MonoBehaviour
 {
@@ -40,13 +39,8 @@ public class MinimapCamera : MonoBehaviour
     
     private void CheckForTanks()
     {
-        bool shouldBeInGameMode = PhotonNetwork.InRoom;
-        
-        if (shouldBeInGameMode)
-        {
-            var tanks = FindObjectsOfType<TankHealth2D>();
-            shouldBeInGameMode = tanks.Length > 0;
-        }
+        var tanks = FindObjectsOfType<TankHealth2D>();
+        bool shouldBeInGameMode = tanks.Length > 0;
         
         if (shouldBeInGameMode != wasInGameMode)
         {
@@ -114,7 +108,7 @@ public class MinimapCamera : MonoBehaviour
         foreach (GameObject playerGO in playerObjects)
         {
             var health = playerGO.GetComponent<TankHealth2D>();
-            if (health != null && health.photonView != null && health.photonView.IsMine)
+            if (health != null && health.IsMine)
             {
                 playerTarget = playerGO.transform;
                 CancelInvoke(nameof(FindPlayerTarget)); 
@@ -125,7 +119,7 @@ public class MinimapCamera : MonoBehaviour
         var tanks = FindObjectsOfType<TankHealth2D>();
         foreach (var tank in tanks)
         {
-            if (tank.photonView != null && tank.photonView.IsMine && !tank.IsDead)
+            if (tank.IsMine && !tank.IsDead)
             {
                 playerTarget = tank.transform;
                 CancelInvoke(nameof(FindPlayerTarget));
@@ -135,7 +129,7 @@ public class MinimapCamera : MonoBehaviour
         
         foreach (var tank in tanks)
         {
-            string owner = tank.photonView.Owner?.NickName ?? "null";
+            string owner = tank.Owner?.ToString() ?? "null";
         }
     }
     

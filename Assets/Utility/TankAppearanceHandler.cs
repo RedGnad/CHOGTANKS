@@ -1,9 +1,12 @@
 using UnityEngine;
-using Photon.Pun;
+using Multisynq;
 
-public class TankAppearanceHandler : MonoBehaviourPun
+public class TankAppearanceHandler : SynqBehaviour
 {
     [SerializeField] private SpriteRenderer tankSpriteRenderer;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
     
     private void Awake()
     {
@@ -20,14 +23,15 @@ public class TankAppearanceHandler : MonoBehaviourPun
     
     private void Start()
     {
-        if (photonView.IsMine)
+        if (IsMine)
         {
             int selectedSkin = PlayerPrefs.GetInt("SelectedTankSkin", 0);
             string skinName = GetSkinNameForIndex(selectedSkin);
             
             if (!string.IsNullOrEmpty(skinName))
             {
-                photonView.RPC("ChangeTankSprite", RpcTarget.AllBuffered, skinName);
+                // Direct RPC call for Multisync
+                ChangeTankSprite(skinName);
             }
         }
     }
@@ -53,7 +57,7 @@ public class TankAppearanceHandler : MonoBehaviourPun
         return null;
     }
     
-    [PunRPC]
+    [SynqRPC]
     public void ChangeTankSprite(string spriteName)
     {
         Sprite newSprite = Resources.Load<Sprite>("TankSprites/" + spriteName);

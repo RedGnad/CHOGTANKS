@@ -1,12 +1,18 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 using System.Collections.Generic;
 
-public class NetworkBufferedInterpolator : MonoBehaviourPun, IPunObservable
+public class NetworkBufferedInterpolator : SynqBehaviour
 {
     [Header("Interpolation avancée")]
     public float interpolationBackTime = 0.1f;
     public float bufferTimeLimit = 1.0f;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
+    
+    [SynqVar] private Vector3 networkedPosition;
+    [SynqVar] private Quaternion networkedRotation;
 
     private struct State
     {
@@ -18,47 +24,20 @@ public class NetworkBufferedInterpolator : MonoBehaviourPun, IPunObservable
 
     void Update()
     {
-        if (!photonView.IsMine && stateBuffer.Count >= 2)
+        if (!IsMine)
         {
-            double interpTime = PhotonNetwork.Time - interpolationBackTime;
-
-            stateBuffer.RemoveAll(s => s.timestamp < PhotonNetwork.Time - bufferTimeLimit);
-
-            for (int i = 0; i < stateBuffer.Count - 1; i++)
-            {
-                if (stateBuffer[i].timestamp <= interpTime && interpTime <= stateBuffer[i + 1].timestamp)
-                {
-                    State s0 = stateBuffer[i];
-                    State s1 = stateBuffer[i + 1];
-                    float t = (float)((interpTime - s0.timestamp) / (s1.timestamp - s0.timestamp));
-                    transform.position = Vector3.Lerp(s0.position, s1.position, t);
-                    transform.rotation = Quaternion.Slerp(s0.rotation, s1.rotation, t);
-                    return;
-                }
-            }
-            State latest = stateBuffer[stateBuffer.Count - 1];
-            transform.position = latest.position;
-            transform.rotation = latest.rotation;
-        }
-    }
-
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if (stream.IsWriting)
-        {
-            stream.SendNext(transform.position);
-            stream.SendNext(transform.rotation);
+            // Simplified interpolation using Multisync SynqVar
+            transform.position = Vector3.Lerp(transform.position, networkedPosition, Time.deltaTime * 10f);
+            transform.rotation = Quaternion.Slerp(transform.rotation, networkedRotation, Time.deltaTime * 10f);
         }
         else
         {
-            State state = new State
-            {
-                timestamp = info.SentServerTime,
-                position = (Vector3)stream.ReceiveNext(),
-                rotation = (Quaternion)stream.ReceiveNext()
-            };
-            stateBuffer.Add(state);
-            stateBuffer.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
+            // Update networked values for owner
+            networkedPosition = transform.position;
+            networkedRotation = transform.rotation;
         }
     }
+
+    // Multisync handles synchronization automatically via [SynqVar]
+    // No manual serialization needed
 }

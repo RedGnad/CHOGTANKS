@@ -27,11 +27,18 @@ namespace Sample
 
         private void Awake()
         {
+            if (_uiDocument == null || _uiDocument.rootVisualElement == null)
+            {
+                Debug.LogWarning("[Notification] UIDocument or rootVisualElement is null. Skipping initialization.");
+                return;
+            }
+
             NotificationContainer = _uiDocument.rootVisualElement.Q<VisualElement>("NotificationContainer");
             _messageLabel = _uiDocument.rootVisualElement.Q<Label>("NotificationText");
             _buttonHide = _uiDocument.rootVisualElement.Q<Button>("NotificationButton");
 
-            _buttonHide.clicked += OnButtonHide;
+            if (_buttonHide != null)
+                _buttonHide.clicked += OnButtonHide;
         }
 
         public static void ShowMessage(string message)

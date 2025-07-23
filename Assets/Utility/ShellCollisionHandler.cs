@@ -1,10 +1,15 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class ShellCollisionHandler : MonoBehaviourPun
+public class ShellCollisionHandler : SynqBehaviour
 {
     [SerializeField] private LayerMask collisionLayers;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
+    public object Owner => this; // Placeholder for Multisync owner
+    public int ActorNumber => GetInstanceID(); // Use instance ID as actor number
 
     [Header("Explosion par Raycast (shell)")]
     [SerializeField] private float explosionRadius = 2f;
@@ -30,7 +35,7 @@ public class ShellCollisionHandler : MonoBehaviourPun
         explosionDamage = normalDamage; // Par défaut
     }
 
-    [PunRPC]
+    [SynqRPC]
     public void SetPrecision(bool isPrecision)
     {
         if (sr == null) sr = GetComponent<SpriteRenderer>();
@@ -44,7 +49,7 @@ public class ShellCollisionHandler : MonoBehaviourPun
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (!photonView.IsMine) return;
+        if (!IsMine) return;
 
         int layerMaskCollision = 1 << collision.gameObject.layer;
         bool isValid = (layerMaskCollision & collisionLayers) != 0;
@@ -58,28 +63,30 @@ public class ShellCollisionHandler : MonoBehaviourPun
             TankHealth2D health = hit.GetComponentInParent<TankHealth2D>();
             if (health == null) continue;
             
-            string tankOwner = health.photonView.Owner != null ? $"{health.photonView.Owner.NickName} (Actor {health.photonView.Owner.ActorNumber})" : "<null>";
-            string shellOwner = photonView.Owner != null ? $"{photonView.Owner.NickName} (Actor {photonView.Owner.ActorNumber})" : "<null>";
+            string tankOwner = health.Owner != null ? $"Tank Owner (Actor {health.ActorNumber})" : "<null>";
+            string shellOwner = Owner != null ? $"Shell Owner (Actor {ActorNumber})" : "<null>";
             
-            bool isSelfDamage = health.photonView.Owner != null && photonView.Owner != null && 
-                              health.photonView.Owner.ActorNumber == photonView.Owner.ActorNumber;
+            bool isSelfDamage = health.Owner != null && Owner != null && 
+                              health.ActorNumber == ActorNumber;
             
             if (isSelfDamage) continue;
             
-            int attackerId = photonView.Owner != null ? photonView.Owner.ActorNumber : -1;
-            health.photonView.RPC("TakeDamageRPC", RpcTarget.All, explosionDamage, attackerId);
+            int attackerId = Owner != null ? ActorNumber : -1;
+            // Direct Multisynq RPC call
+            health.TakeDamageRPC(explosionDamage, attackerId);
         }
 
         if (particleOnlyExplosionPrefab != null) {
             Instantiate(particleOnlyExplosionPrefab, explosionPos, Quaternion.identity);
         }
         
-        photonView.RPC("PlayParticlesRPC", RpcTarget.Others, explosionPos);
+        // Direct Multisynq RPC call
+        PlayParticlesRPC(explosionPos);
         
-        PhotonNetwork.Destroy(gameObject);
+        Destroy(gameObject);
     }
 
-    [PunRPC]
+    [SynqRPC]
     private void PlayParticlesRPC(Vector2 pos)
     {
         if (particleOnlyExplosionPrefab == null) return;

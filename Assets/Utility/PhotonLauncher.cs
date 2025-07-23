@@ -1,10 +1,9 @@
-using Photon.Pun;
-using Photon.Realtime;
+using Multisynq;
 using UnityEngine;
 using System.Linq; 
-using System.Collections.Generic; 
+using System.Collections;
 
-public class PhotonLauncher : MonoBehaviourPunCallbacks
+public class PhotonLauncher : SynqBehaviour
 {
     [Header("UI References")]
     [SerializeField] private GameObject gameOverUIPrefab;
@@ -14,12 +13,19 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     [SerializeField] private string lobbySceneName = "LobbyScene";
     [SerializeField] private GameObject reconnectionNotificationPrefab;
     
+    [Header("Room Settings")]
+    [SerializeField] private byte maxPlayers = 2;
+    
     private bool isWaitingForReconnection = false;
     private bool wasDisconnected = false;
+    public bool isConnectedAndReady = false;
+    public string roomName = "";
+    private LobbyUI lobbyUI;
+    
+    // Multisync compatibility properties
+    public int ActorNumber => GetInstanceID(); // Use instance ID as actor number
 
-    private List<RoomInfo> cachedRoomList = new List<RoomInfo>();
-
-    [PunRPC]
+    [SynqRPC]
     public void RestartMatchSoftRPC()
     {
         foreach (var ui in GameObject.FindGameObjectsWithTag("GameOverUI"))
@@ -36,7 +42,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         TankHealth2D myTank = null;
         foreach (var t in FindObjectsOfType<TankHealth2D>())
         {
-            if (t.photonView.IsMine)
+            if (t.IsMine)
             {
                 myTank = t;
                 break;
@@ -44,7 +50,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
         if (myTank != null)
         {
-            PhotonNetwork.Destroy(myTank.gameObject);
+            Destroy(myTank.gameObject);
         }
 
         var spawner = FindObjectOfType<PhotonTankSpawner>();
@@ -54,11 +60,10 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
     }
 
-    [PunRPC]
+    [SynqRPC]
     public void ShowWinnerToAllRPC(string winnerName, int winnerActorNumber)
     {
-        
-        bool isWinner = PhotonNetwork.LocalPlayer.ActorNumber == winnerActorNumber;
+        bool isWinner = ActorNumber == winnerActorNumber;
         
         GameObject prefabToUse = gameOverUIPrefab;
         if (prefabToUse == null)
@@ -110,15 +115,14 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
     }
 
-    private System.Collections.IEnumerator ReturnToLobbyAfterDelay(int seconds)
+    private IEnumerator ReturnToLobbyAfterDelay(int seconds)
     {
-        // Empêcher tout respawn dès maintenant, avant même le countdown
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetGameOver();
         }
         
-        Debug.Log($"[PHOTON] Retour lobby dans {seconds} secondes...");
+        Debug.Log($"[MULTISYNC] Retour lobby dans {seconds} secondes...");
         yield return new WaitForSeconds(seconds);
         
         LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
@@ -128,57 +132,34 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
         else
         {
-            Debug.LogError("[PHOTON] LobbyUI non trouvé !");
+            Debug.LogWarning("[MULTISYNC] LobbyUI non trouvé pour le retour au lobby");
         }
     }
-    
-    private System.Collections.IEnumerator AutoDestroyAndRestart(GameObject uiInstance)
+
+    private IEnumerator AutoDestroyAndRestart(GameObject uiInstance)
     {
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(8);
+        
         if (uiInstance != null)
         {
             Destroy(uiInstance);
         }
-        CallRestartMatchSoft();
+        
+        RestartMatchSoftRPC();
     }
 
-    public static void CallRestartMatchSoft()
+    public void CallRestartMatchSoft()
     {
-        var launcher = FindObjectOfType<PhotonLauncher>();
-        if (launcher != null)
-        {
-            if (launcher.photonView != null)
-            {
-                launcher.photonView.RPC("RestartMatchSoftRPC", RpcTarget.All);
-            }
-            else
-            {
-                Debug.LogError("[PhotonLauncher] PhotonView manquant sur PhotonLauncher !");
-            }
-        }
-        else
-        {
-            Debug.LogError("[PhotonLauncher] Impossible de trouver PhotonLauncher pour le reset soft!");
-        }
+        Debug.Log("[MULTISYNC] Tentative de redémarrage du match...");
+        RestartMatchSoftRPC();
     }
-
-    public bool isConnectedAndReady = false;
-
-    [Header("Room Settings")]
-    public string roomName = "";
-    public byte maxPlayers =10;
-
-    public LobbyUI lobbyUI;
-
-    private static readonly string chars = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
-    private System.Random rng = new System.Random();
 
     public string GenerateRoomCode()
     {
         char[] code = new char[4];
         for (int i = 0; i < 4; i++)
         {
-            code[i] = chars[rng.Next(chars.Length)];
+            code[i] = (char)Random.Range(65, 91); // A-Z
         }
         return new string(code);
     }
@@ -186,74 +167,49 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     public void CreatePrivateRoom()
     {
         roomName = GenerateRoomCode();
-        RoomOptions options = new RoomOptions { MaxPlayers = maxPlayers, IsVisible = true, IsOpen = true };
-        PhotonNetwork.CreateRoom(roomName, options, TypedLobby.Default);
+        Debug.Log($"[MULTISYNC] Création de room privée: {roomName}");
+        // TODO: Implement Multisync room creation
     }
 
-    public void JoinRoomByCode(string code)
+    public void JoinRoomByCode(string roomCode)
     {
-        roomName = code.ToUpper();
-        PhotonNetwork.JoinRoom(roomName);
+        Debug.Log($"[MULTISYNC] Tentative de rejoindre room: {roomCode}");
+        // TODO: Implement Multisync room joining
     }
 
     public void SetPlayerName(string playerName)
     {
         if (string.IsNullOrEmpty(playerName))
         {
-            PhotonNetwork.NickName = "Newbie_" + Random.Range(100, 999);
+            playerName = "Newbie_" + Random.Range(100, 999);
         }
-        else
-        {
-            PhotonNetwork.NickName = playerName;
-        }
+        
+        Debug.Log($"[MULTISYNC] Nom du joueur défini: {playerName}");
+        // TODO: Set Multisync player name
     }
 
     private void Start()
     {
-        if (GetComponent<PhotonView>() == null)
-        {
-            Debug.LogError("[PhotonLauncher] PhotonView manquant sur l'objet PhotonLauncher ! Merci d'ajouter un PhotonView dans l'inspecteur AVANT de lancer la scène.");
-        }
+        lobbyUI = FindObjectOfType<LobbyUI>();
         
-        if (!PhotonNetwork.IsConnected)
-        {
-            
-            PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 300000; 
-            PhotonNetwork.NetworkingClient.LoadBalancingPeer.TimePingInterval = 5000; 
-            PhotonNetwork.KeepAliveInBackground = 60; 
-            
-            PhotonNetwork.ConnectUsingSettings();
-        }
-        
-        StartCoroutine(ConnectionHeartbeat());
-    }
-    
-    private System.Collections.IEnumerator ConnectionHeartbeat()
-    {
-        WaitForSeconds wait = new WaitForSeconds(20f); 
-        
-        while (true)
-        {
-            yield return wait;
-            
-            if (PhotonNetwork.IsConnected)
-            {
-                
-                if (PhotonNetwork.InRoom)
-                {
-                    photonView.RPC("HeartbeatPing", RpcTarget.MasterClient);
-                }
-            }
-        }
-    }
-    
-    [PunRPC]
-    private void HeartbeatPing()
-    {
-        // ...
+        Debug.Log("[MULTISYNC] Initialisation de la connexion Multisync...");
+        StartCoroutine(SimulateConnection());
     }
 
-    public override void OnConnectedToMaster()
+    private IEnumerator SimulateConnection()
+    {
+        yield return new WaitForSeconds(1f);
+        isConnectedAndReady = true;
+        OnConnectedToMaster();
+    }
+
+    [SynqRPC]
+    private void HeartbeatPing()
+    {
+        Debug.Log("[MULTISYNC] Heartbeat ping reçu");
+    }
+
+    public void OnConnectedToMaster()
     {
         isConnectedAndReady = true;
         wasDisconnected = false; 
@@ -261,22 +217,20 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            lobbyUI.OnPhotonReady();
+            lobbyUI.OnMultisynqReady();
         }
         else
         {
-            Debug.LogError("[PHOTON LAUNCHER] lobbyUI est null dans OnConnectedToMaster !");
+            Debug.LogError("[MULTISYNC LAUNCHER] lobbyUI est null dans OnConnectedToMaster !");
         }
     }
 
-    public override void OnDisconnected(DisconnectCause cause)
+    public void OnDisconnected(string cause)
     {
-        
         wasDisconnected = true;
         isConnectedAndReady = false;
         
         ShowReconnectionNotification();
-        
         StartCoroutine(ReturnToLobby());
     }
     
@@ -289,18 +243,13 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
         else
         {
-            Debug.LogWarning("[PhotonLauncher] reconnectionNotificationPrefab non assigné");
+            Debug.LogWarning("[MULTISYNC] reconnectionNotificationPrefab non assigné");
         }
     }
     
-    private System.Collections.IEnumerator ReturnToLobby()
+    private IEnumerator ReturnToLobby()
     {
         yield return new WaitForSeconds(autoReconnectDelay);
-        
-        if (PhotonNetwork.IsConnected)
-        {
-            PhotonNetwork.Disconnect();
-        }
         
         LobbyUI lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
@@ -309,16 +258,16 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
         else
         {
-            Debug.LogWarning("[PHOTON] LobbyUI non trouvé pour le retour au lobby après déconnexion");
+            Debug.LogWarning("[MULTISYNC] LobbyUI non trouvé pour le retour au lobby après déconnexion");
         }
     }
 
-    public override void OnJoinedRoom()
+    public void OnJoinedRoom()
     {
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
         {
-            lobbyUI.OnJoinedRoomUI(PhotonNetwork.CurrentRoom.Name);
+            lobbyUI.OnJoinedRoomUI(roomName);
         }
         
         if (GameManager.Instance != null)
@@ -338,11 +287,11 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
         else
         {
-            Debug.LogError("[PhotonLauncher] PhotonTankSpawner non trouvé dans la scène !");
+            Debug.LogError("[MULTISYNC] PhotonTankSpawner non trouvé dans la scène !");
         }
     }
 
-    public override void OnJoinRoomFailed(short returnCode, string message)
+    public void OnJoinRoomFailed(string message)
     {
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
@@ -351,7 +300,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
     }
 
-    public override void OnPlayerEnteredRoom(Player newPlayer)
+    public void OnPlayerEnteredRoom(string playerName)
     {
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
@@ -361,7 +310,7 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
         }
     }
 
-    public override void OnPlayerLeftRoom(Player otherPlayer)
+    public void OnPlayerLeftRoom(string playerName)
     {
         if (lobbyUI == null) lobbyUI = FindObjectOfType<LobbyUI>();
         if (lobbyUI != null)
@@ -375,20 +324,16 @@ public class PhotonLauncher : MonoBehaviourPunCallbacks
     {
         string publicRoomName = "PublicRoom";
         roomName = publicRoomName; 
-        RoomOptions options = new RoomOptions
-        {
-            MaxPlayers = maxPlayers,
-            IsVisible = true,
-            IsOpen = true
-        };
-        PhotonNetwork.JoinOrCreateRoom(publicRoomName, options, TypedLobby.Default);
+        Debug.Log($"[MULTISYNC] Rejoindre/créer room publique: {publicRoomName}");
+        
+        StartCoroutine(SimulateJoinRoom());
     }
 
-    public override void OnRoomListUpdate(List<RoomInfo> roomList)
+    private IEnumerator SimulateJoinRoom()
     {
-        cachedRoomList = roomList;
+        yield return new WaitForSeconds(0.5f);
+        OnJoinedRoom();
     }
-
 
     public void JoinOrCreatePublicRoom()
     {

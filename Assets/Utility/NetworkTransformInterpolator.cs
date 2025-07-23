@@ -1,14 +1,17 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 
-public class NetworkTransformInterpolator : MonoBehaviourPun, IPunObservable
+public class NetworkTransformInterpolator : SynqBehaviour
 {
     [Header("Interpolation")]
     public float positionLerpSpeed = 15f;
     public float rotationLerpSpeed = 15f;
 
-    private Vector3 networkedPosition;
-    private Quaternion networkedRotation;
+    [SynqVar] private Vector3 networkedPosition;
+    [SynqVar] private Quaternion networkedRotation;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
 
     private void Awake()
     {
@@ -18,24 +21,19 @@ public class NetworkTransformInterpolator : MonoBehaviourPun, IPunObservable
 
     void Update()
     {
-        if (!photonView.IsMine)
+        if (!IsMine)
         {
             transform.position = Vector3.Lerp(transform.position, networkedPosition, Time.deltaTime * positionLerpSpeed);
             transform.rotation = Quaternion.Slerp(transform.rotation, networkedRotation, Time.deltaTime * rotationLerpSpeed);
         }
-    }
-
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if (stream.IsWriting)
-        {
-            stream.SendNext(transform.position);
-            stream.SendNext(transform.rotation);
-        }
         else
         {
-            networkedPosition = (Vector3)stream.ReceiveNext();
-            networkedRotation = (Quaternion)stream.ReceiveNext();
+            // Update networked values for owner
+            networkedPosition = transform.position;
+            networkedRotation = transform.rotation;
         }
     }
+
+    // Multisync handles synchronization automatically via [SynqVar]
+    // No manual serialization needed
 }

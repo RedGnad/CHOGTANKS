@@ -8,6 +8,12 @@ EditorUserSettings:
     GraphicsSettingsInspector_UserSettings:
       value: 18134705175a055722080a3115371d4a0d55006876786860616b0471b8b1646cb1a966f4ab782f352907e3350a3b272afe063d12e60e240a1c0bbf5453ca1e1a05dc3dcb1dc11119852b19c0c918c3eadbd19adfd6e2f1ddcccca1febac5e0f1e3f4b7e8aba4cec5a4abfba39fcbd7c1cdc3b9c1edd5dac2ae90cc
       flags: 0
+    RecentlyUsedSceneGuid-0:
+      value: 060905525d0208085f0d547a45770d44404e1b2c7a2a746375781965e3b7326e
+      flags: 0
+    RecentlyUsedSceneGuid-1:
+      value: 500151075d505b09590f5474452209444015497c292d25642c2c4436e3b8376d
+      flags: 0
     vcSharedLogLevel:
       value: 0d5e400f0650
       flags: 0
@@ -27,4 +33,3 @@ EditorUserSettings:
   m_VCAllowAsyncUpdate: 1
   m_VCScanLocalPackagesOnConnect: 1
   m_ArtifactGarbageCollection: 1
-  m_CompressAssetsOnImport: 1

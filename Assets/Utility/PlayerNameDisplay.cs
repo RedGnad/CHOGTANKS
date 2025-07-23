@@ -1,10 +1,9 @@
-using Photon.Pun;
-using Photon.Realtime;
+using Multisynq;
 using UnityEngine;
 using TMPro;
 using System.Collections;
 
-public class PlayerNameDisplay : MonoBehaviourPunCallbacks
+public class PlayerNameDisplay : SynqBehaviour
 {
     [Header("UI References")]
     public TextMeshProUGUI nameText;
@@ -18,6 +17,11 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     public Color otherPlayerColor = Color.white;
     
     private bool isSubscribedToPlayerProps = false;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
+    public object Owner => this; // Placeholder for Multisync owner
+    public int ActorNumber => GetInstanceID(); // Use instance ID as actor number
     
     private void Start()
     {
@@ -43,51 +47,29 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
         
         UpdateTextPosition();
         
-        if (!isSubscribedToPlayerProps)
-        {
-            PhotonNetwork.NetworkingClient.EventReceived += OnPhotonEvent;
-            isSubscribedToPlayerProps = true;
-        }
+        // Multisync doesn't need event subscription for player properties
         
         StartCoroutine(RefreshPlayerNamePeriodically());
     }
 
     private void SetPlayerName()
     {
-        if (nameText != null && photonView.Owner != null)
+        if (nameText != null && Owner != null)
         {
-            string playerName = photonView.Owner.NickName;
-            if (string.IsNullOrEmpty(playerName))
-            {
-                playerName = $"Player {photonView.Owner.ActorNumber}";
-            }
+            string playerName = $"Player {ActorNumber}";
 
-            if (photonView.IsMine)
+            if (IsMine)
             {
                 var nftManager = FindObjectOfType<ChogTanksNFTManager>();
                 if (nftManager != null && nftManager.currentNFTState != null)
                 {
                     int nftLevel = nftManager.currentNFTState.level;
-                    
-                    ExitGames.Client.Photon.Hashtable playerProps = new ExitGames.Client.Photon.Hashtable();
-                    playerProps["level"] = nftLevel;
-                    PhotonNetwork.LocalPlayer.SetCustomProperties(playerProps);
+                    playerName += $" lvl {nftLevel}";
                 }
             }
 
-            int playerLevel = 0;
-            if (photonView.Owner.CustomProperties.ContainsKey("level"))
-            {
-                playerLevel = (int)photonView.Owner.CustomProperties["level"];
-            }
-            
-            if (playerLevel > 0)
-            {
-                playerName += $" lvl {playerLevel}";
-            }
-
             nameText.text = playerName;
-            if (photonView.IsMine)
+            if (IsMine)
             {
                 nameText.color = localPlayerColor;
             }
@@ -117,24 +99,9 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
         }
     }
     
-    public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
-    {
-        if (photonView.Owner != null && targetPlayer.ActorNumber == photonView.Owner.ActorNumber)
-        {
-            if (changedProps.ContainsKey("level"))
-            {
-                SetPlayerName();
-            }
-        }
-    }
+    // Multisync handles property updates automatically
     
-    private void OnPhotonEvent(ExitGames.Client.Photon.EventData photonEvent)
-    {
-        if (photonEvent.Code == 226)
-        {
-            SetPlayerName();
-        }
-    }
+    // Multisync handles events automatically
     
     private IEnumerator RefreshPlayerNamePeriodically()
     {
@@ -147,18 +114,13 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     
     void OnDestroy()
     {
-        if (isSubscribedToPlayerProps)
-        {
-            PhotonNetwork.NetworkingClient.EventReceived -= OnPhotonEvent;
-            isSubscribedToPlayerProps = false;
-        }
         StopAllCoroutines();
     }
 
     public void SetLocalPlayerColor(Color color)
     {
         localPlayerColor = color;
-        if (photonView.IsMine)
+        if (IsMine)
         {
             nameText.color = color;
         }
@@ -167,7 +129,7 @@ public class PlayerNameDisplay : MonoBehaviourPunCallbacks
     public void SetOtherPlayerColor(Color color)
     {
         otherPlayerColor = color;
-        if (!photonView.IsMine)
+        if (!IsMine)
         {
             nameText.color = color;
         }

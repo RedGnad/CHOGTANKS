@@ -1,7 +1,7 @@
-using Photon.Pun;
+using Multisynq;
 using UnityEngine;
 
-public class MinimapIcon : MonoBehaviourPunCallbacks
+public class MinimapIcon : SynqBehaviour
 {
     [Header("Configuration")]
     [SerializeField] private Color localPlayerColor = Color.green;
@@ -10,6 +10,9 @@ public class MinimapIcon : MonoBehaviourPunCallbacks
     
     private GameObject iconInstance;
     private SpriteRenderer iconRenderer;
+    
+    // Multisync compatibility properties
+    public bool IsMine => true; // Placeholder for Multisync ownership
     
     private void Start()
     {
@@ -31,7 +34,7 @@ public class MinimapIcon : MonoBehaviourPunCallbacks
         iconRenderer.sortingOrder = 100; 
         
         Color iconColor;
-        if (photonView.IsMine)
+        if (IsMine)
         {
             iconColor = localPlayerColor;
             iconColor.a = 1f; 

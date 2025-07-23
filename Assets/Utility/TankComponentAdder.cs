@@ -1,14 +1,14 @@
 using UnityEngine;
-using Photon.Pun;
 using System.Collections;
 using System.Collections.Generic;
+using Multisynq;
 
 [DefaultExecutionOrder(-1000)] // Priorité MAXIMALE pour s'exécuter avant tous les autres scripts
-public class TankComponentAdder : MonoBehaviourPunCallbacks
+public class TankComponentAdder : MonoBehaviour
 {
     [SerializeField] private GameObject gameOverUIPrefab;
     
-    private List<int> processedViewIds = new List<int>();
+    private List<GameObject> processedTanks = new List<GameObject>();
     
     public static TankComponentAdder Instance { get; private set; }
     
@@ -32,35 +32,33 @@ public class TankComponentAdder : MonoBehaviourPunCallbacks
     
     private void TreatExistingTanks()
     {
-        PhotonView[] views = FindObjectsOfType<PhotonView>();
-        foreach (PhotonView view in views)
+        TankHealth2D[] tanks = FindObjectsOfType<TankHealth2D>();
+        foreach (TankHealth2D tank in tanks)
         {
-            AddComponentToTank(view);
+            AddComponentToTank(tank.gameObject);
         }
     }
     
-    private void AddComponentToTank(PhotonView view)
+    private void AddComponentToTank(GameObject tankObject)
     {
-        TankHealth2D health = view.GetComponent<TankHealth2D>();
+        TankHealth2D health = tankObject.GetComponent<TankHealth2D>();
         if (health == null) return; // Pas un tank, on ignore
         
-        SimpleTankRespawn respawn = view.GetComponent<SimpleTankRespawn>();
+        SimpleTankRespawn respawn = tankObject.GetComponent<SimpleTankRespawn>();
         if (respawn == null)
         {
             try
             {
-                respawn = view.gameObject.AddComponent<SimpleTankRespawn>();
+                respawn = tankObject.AddComponent<SimpleTankRespawn>();
                 
                 if (gameOverUIPrefab != null)
                 {
                     respawn.gameOverUIPrefab = gameOverUIPrefab;
                 }
                 
-                string ownerName = view.Owner != null ? view.Owner.NickName : "unknown";
-                
-                if (!processedViewIds.Contains(view.ViewID))
+                if (!processedTanks.Contains(tankObject))
                 {
-                    processedViewIds.Add(view.ViewID);
+                    processedTanks.Add(tankObject);
                 }
             }
             catch (System.Exception ex)
@@ -81,33 +79,30 @@ public class TankComponentAdder : MonoBehaviourPunCallbacks
     {
         while (true)
         {
-            if (PhotonNetwork.IsConnected && PhotonNetwork.InRoom)
+            TankHealth2D[] tanks = FindObjectsOfType<TankHealth2D>();
+            foreach (TankHealth2D tank in tanks)
             {
-                PhotonView[] views = FindObjectsOfType<PhotonView>();
-                foreach (PhotonView view in views)
-                {
-                    AddComponentToTank(view);
-                }
+                AddComponentToTank(tank.gameObject);
             }
             
             yield return new WaitForSeconds(0.2f); // Vérification plus fréquente (5 fois par seconde)
         }
     }
     
-    public override void OnJoinedRoom()
+    public void OnJoinedSession()
     {
-        processedViewIds.Clear();
+        processedTanks.Clear();
         TreatExistingTanks();
     }
     
-    public override void OnLeftRoom()
+    public void OnLeftSession()
     {
-        processedViewIds.Clear();
+        processedTanks.Clear();
     }
     
     public void ResetAndTreatAllTanks()
     {
-        processedViewIds.Clear();
+        processedTanks.Clear();
         TreatExistingTanks();
     }
 }
