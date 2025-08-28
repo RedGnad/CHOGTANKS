@@ -5,78 +5,80 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>CHOGTANKS - Monad Games ID Login</title>
   <style>
-    :root {
-      --bg: #200052;
-      --panel-bg: rgba(251,250,249,0.92);
-      --text-color: #000;
-      --btn-color: #A0055D;
-      --btn-text: #FBFAF9;
-    }
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      color: var(--text-color);
-      text-align: center;
-    }
-    .container {
-      background: var(--panel-bg);
-      padding: 32px;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-      width: 95%;
-      max-width: 650px;
-      box-sizing: border-box;
-    }
-    h1 {
-      margin-top: 0;
-      margin-bottom: 24px;
-      font-size: 26px;
-    }
-    #root {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-    #root > * {
-      width: 100%;
-      max-width: 620px;
-      margin: 0 auto;
-      box-sizing: border-box;
-      text-align: center;
-    }
-    #root button {
-      background: var(--btn-color) !important;
-      background-image: none !important;
-      color: var(--btn-text) !important;
-      border: none !important;
-      padding: 12px 24px !important;
-      border-radius: 12px !important;
-      font-size: 16px !important;
-      cursor: pointer !important;
-      transition: transform .1s ease-out !important;
-    }
-    #root button:hover {
-      transform: translateY(-1px);
-    }
-    #root button:active {
-      transform: translateY(0);
-    }
+    :root{--bg:#200052;--panel-bg:rgba(251,250,249,0.92);--text:#000;--btn:#A0055D;--btn-text:#FBFAF9}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto',sans-serif;color:var(--text);text-align:center}
+    .container{background:var(--panel-bg);padding:32px;border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.2);width:95%;max-width:680px;box-sizing:border-box}
+    h1{margin:0 0 18px;font-size:26px}
+    #root{display:flex;flex-direction:column;align-items:center;gap:14px}
+    #root>*{width:100%;max-width:640px;margin:0 auto;box-sizing:border-box;text-align:center}
+    #root button{background:var(--btn) !important;background-image:none !important;color:var(--btn-text) !important;border:none !important;padding:12px 24px !important;border-radius:12px !important;font-size:16px !important;cursor:pointer !important;transition:transform .08s}
+    #root button:hover{transform:translateY(-1px) !important}
+    #root *{margin-left:auto !important;margin-right:auto !important;left:auto !important;right:auto !important;transform:none !important;position:static !important}
   </style>
-  <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>Monad Games ID</h1>
+    <h1 id="main-title">Monad Games ID</h1>
     <div id="root"></div>
   </div>
+
+  <script>
+    (function(){
+      var container = document.querySelector('.container');
+      function sanitizeTextNodes(root){
+        var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false), n;
+        while(n = w.nextNode()){
+          if(n.nodeValue && n.nodeValue.indexOf('🎮') !== -1) n.nodeValue = n.nodeValue.replace(/🎮/g,'');
+          if(n.nodeValue && n.nodeValue.indexOf('Se connecter') !== -1) n.nodeValue = n.nodeValue.replace(/Se connecter/g,'Connect');
+        }
+      }
+      function removeDuplicateHeadings(){
+        var hs = container.querySelectorAll('h1,h2,h3,h4,h5,h6');
+        if(hs.length > 1){
+          hs.forEach(function(h){
+            if(h.id === 'main-title') return;
+            var txt = (h.textContent || '').replace(/🎮/g,'').trim();
+            if(txt.toLowerCase().indexOf('monad games id'.toLowerCase())!==-1 || txt.toLowerCase().indexOf('chogtanks'.toLowerCase())!==-1) h.remove();
+          });
+        }
+        if(!container.querySelector('#main-title')){
+          var t = document.createElement('h1'); t.id='main-title'; t.textContent='Monad Games ID';
+          container.insertBefore(t, container.firstChild);
+        }
+      }
+      function centerAndStyle(){
+        var elems = container.querySelectorAll('div,section,form,header,main');
+        elems.forEach(function(el){
+          el.style.marginLeft='auto';
+          el.style.marginRight='auto';
+          el.style.left='auto';
+          el.style.right='auto';
+          el.style.transform='none';
+          el.style.position='static';
+          el.style.textAlign='center';
+          el.style.maxWidth='640px';
+          el.style.width='100%';
+        });
+        var btns = container.querySelectorAll('button');
+        btns.forEach(function(b){
+          if(b.textContent.trim()==='Se connecter') b.textContent='Connect';
+          b.style.background=window.getComputedStyle(document.documentElement).getPropertyValue('--btn') || '#A0055D';
+          b.style.backgroundImage='none';
+          b.style.color=window.getComputedStyle(document.documentElement).getPropertyValue('--btn-text') || '#FBFAF9';
+        });
+      }
+      function fixAll(){
+        sanitizeTextNodes(container);
+        removeDuplicateHeadings();
+        centerAndStyle();
+      }
+      var obs = new MutationObserver(fixAll);
+      obs.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+      document.addEventListener('DOMContentLoaded', function(){ fixAll(); setTimeout(fixAll,300); });
+    })();
+  </script>
+
+  <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
 </body>
 </html>
