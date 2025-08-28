@@ -1,139 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CHOGTANKS - Monad Games ID Login</title>
-    <style>
-      :root {
-        /* Ton thème */
-        --bg-color: #200052;      /* deep blue */
-        --btn-color: #A0055D;     /* berry (solid, no gradient) */
-        --btn-text:  #FBFAF9;     /* off-white for contrast */
-        --panel-bg:  rgba(251, 250, 249, 0.92);
-        --panel-text:#000000;     /* panel text in black */
-        --title-text:#000000;     /* title in black */
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CHOGTANKS - Monad Games ID Login</title>
+  <style>
+    :root {
+      --bg: #200052;
+      --panel-bg: rgba(251, 250, 249, 0.92);
+      --panel-text: #000;
+      --btn: #A0055D;
+      --btn-text: #FBFAF9;
+    }
 
-        /* Variables AppKit/Web3Modal (accent & text) */
-        /* Ces variables sont reconnues par le modal et certains boutons AppKit */
-        --wcm-accent-color: var(--btn-color);
-        --wcm-accent-fill-color: var(--btn-text);
-      }
+    body {
+      margin: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      color: var(--panel-text);
+    }
 
-      /* Page layout: centre tout, colonne */
-      body {
-        margin: 0;
-        background: var(--bg-color);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+    .container {
+      background: var(--panel-bg);
+      padding: 32px;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      max-width: 400px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
 
-      .page {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        width: 100%;
-        max-width: 640px;
-        padding: 24px 12px;
-        box-sizing: border-box;
-      }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 24px;
+    }
 
-      .title {
-        margin: 0;
-        color: var(--title-text); /* noir demandé */
-        font-size: 24px;
-        text-align: center;
-      }
+    #root {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
 
-      .container {
-        background: var(--panel-bg);
-        color: var(--panel-text); /* tout le texte à l'intérieur en noir */
-        padding: 32px 28px;
-        border-radius: 20px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.20);
-        width: 100%;
-        max-width: 400px;
-        display: flex;
-        flex-direction: column;
-        align-items: center; /* centre le contenu interne */
-        text-align: center;
-        margin: 0 auto; /* assure le centrage horizontal */
-      }
+    #root button {
+      background: var(--btn)!important;
+      background-image: none!important;
+      color: var(--btn-text)!important;
+      border: none!important;
+      padding: 12px 24px!important;
+      border-radius: 12px!important;
+      font-size: 16px!important;
+      cursor: pointer!important;
+      transition: transform .1s ease-out!important;
+    }
+    #root button:hover {
+      transform: translateY(-1px)!important;
+    }
+    #root button:active {
+      transform: translateY(0)!important;
+    }
 
-      /* S'assure que ce que rend React soit bien centré */
-      #root {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-      }
-
-      /* ---------- FORCING A SINGLE, SOLID, NON-GRADIENT CONNECT BUTTON ---------- */
-      /*
-        Objectif: styliser le bouton AppKit rendu dans #root (ou ouvertures modales)
-        sans ajouter de 2e bouton. On élimine les gradients potentiels et on
-        applique la couleur berry.
-      */
-
-      /* 1) Boutons directs dans #root (selon intégration AppKit) */
-      #root button {
-        background: var(--btn-color) !important;
-        background-image: none !important;
-        color: var(--btn-text) !important;
-        border: none !important;
-        padding: 12px 24px !important;
-        border-radius: 12px !important;
-        font-size: 16px !important;
-        cursor: pointer !important;
-        transition: transform .08s ease-out !important;
-      }
-      #root button:hover { transform: translateY(-1px); }
-      #root button:active { transform: translateY(0); }
-
-      /* 2) Web Component AppKit (si utilisé) */
-      appkit-wallet-button::part(button) {
-        background: var(--btn-color);
-        color: var(--btn-text);
-        border: none;
-        border-radius: 12px;
-        padding: 12px 24px;
-        font-size: 16px;
-      }
-
-      /* 3) Classes internes du modal (fallback agressif) */
-      [data-wcm] button,
-      [class*="wcm-"] button {
-        background: var(--btn-color) !important;
-        background-image: none !important;
-        color: var(--btn-text) !important;
-        border: none !important;
-      }
-
-      /* Optionnel : liens/infos rendus par React en noir et centrés */
-      .message, .wallet-info, .status, p, span, h2, h3 {
-        color: var(--panel-text);
-        text-align: center;
-      }
-    </style>
-
-    <!-- On garde ton build tel quel -->
-    <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
-  </head>
-  <body>
-    <div class="page">
-      <!-- Titre en noir, centré -->
-      <h1 class="title">🎮 Monad Games ID</h1>
-
-      <!-- Fenêtre blanche, parfaitement centrée sous le titre -->
-      <div class="container">
-        <!-- React montera ici (bouton de connexion, messages, etc.) -->
-        <div id="root"></div>
-      </div>
-    </div>
-  </body>
+  </style>
+  <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Monad Games ID</h1>
+    <div id="root"></div>
+  </div>
+</body>
 </html>
