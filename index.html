@@ -1,46 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CHOGTANKS - Monad Games ID Login</title>
-  <style>
-    body {
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: #200052; /* exemple de fond bleu */
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-    }
-    .container {
-      background: rgba(251, 250, 249, 0.95); /* conteneur blanc semi-opaque */
-      padding: 40px;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-      max-width: 400px;
-      width: 90%;
-      text-align: center;
-    }
-    .message {
-      color: #000; /* texte en noir demandé */
-      margin: 10px 0;
-      white-space: pre-wrap; /* conserve les retours à la ligne */
-      font-size: 14px;
-      font-family: monospace;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="message">
-      Connected Successfully!<br/>
-      Username: Red_G<br/>
-      Wallet: 0x510F70B46dC8cf5561C61FAAD7fc0F2E288Bd9Af<br/>
-      Sending to Unity... Window will close automatically.<br/>
-      Success! Sending to Unity...
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHOGTANKS - Monad Games ID Login</title>
+    <style>
+      :root {
+        --bg-color: #200052;      /* Fond bleu profond */
+        --btn-color: #A0055D;     /* Bouton Berry */
+        --btn-hover: #FBFAF9;     /* Hover Off-White */
+        --text-color: #FBFAF9;    /* Texte clair */
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        background: rgba(251, 250, 249, 0.9);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+      }
+      .btn {
+        background: var(--btn-color);
+        color: var(--text-color);
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background .2s;
+      }
+      .btn:hover {
+        background: var(--btn-hover);
+        color: var(--btn-color);
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div id="root"></div>
+      <button class="btn">Se connecter</button>
     </div>
-  </div>
-</body>
+  </body>
 </html>
