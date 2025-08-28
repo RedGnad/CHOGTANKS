@@ -13,11 +13,7 @@
       --btn-text: #FBFAF9;
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
+    html, body { height: 100%; margin: 0; padding: 0; }
     body {
       background: var(--bg);
       display: grid;
@@ -35,10 +31,7 @@
       max-width: 680px;
       box-sizing: border-box;
     }
-    h1 {
-      margin: 0 0 18px;
-      font-size: 26px;
-    }
+    h1 { margin: 0 0 18px; font-size: 26px; }
     #root {
       display: flex;
       flex-direction: column;
@@ -62,20 +55,30 @@
       cursor: pointer !important;
       transition: transform .08s !important;
     }
-    #root button:hover {
-      transform: translateY(-1px);
-    }
-    #root button:active {
-      transform: translateY(0);
+    #root button:hover { transform: translateY(-1px) !important; }
+    #root button:active { transform: translateY(0) !important; }
+    .footer-image {
+      margin-top: 24px;
+      max-width: 95%;
+      max-height: 200px;
+      object-fit: contain;
+      width: auto;
+      height: auto;
+      display: block;
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
 </head>
 <body>
   <div class="container">
     <h1 id="main-title">Monad Games ID</h1>
     <div id="root"></div>
   </div>
+  <img
+    src="https://green-adjacent-sheep-82.mypinata.cloud/ipfs/bafkreif4auid3swrpyk7dunmcgtioktjcvafuy3qndoedjdytwvdyegpsm"
+    alt=""
+    class="footer-image"
+  />
+  <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
   <script>
     (function(){
       var container = document.querySelector('.container');
@@ -101,8 +104,7 @@
         }
       }
       function alignElements(){
-        var elems = container.querySelectorAll('div,section,form');
-        elems.forEach(function(el){
+        container.querySelectorAll('div,section,form').forEach(function(el){
           el.style.margin = '0 auto';
           el.style.textAlign = 'center';
           el.style.maxWidth = '640px';
@@ -110,9 +112,9 @@
         });
         container.querySelectorAll('button').forEach(function(b){
           if (b.textContent.trim() === 'Se connecter') b.textContent = 'Connect';
-          b.style.background = getComputedStyle(document.documentElement).getPropertyValue('--btn').trim() || '#A0055D';
+          b.style.background = window.getComputedStyle(document.documentElement).getPropertyValue('--btn').trim() || '#A0055D';
           b.style.backgroundImage = 'none';
-          b.style.color = getComputedStyle(document.documentElement).getPropertyValue('--btn-text').trim() || '#FBFAF9';
+          b.style.color = window.getComputedStyle(document.documentElement).getPropertyValue('--btn-text').trim() || '#FBFAF9';
         });
       }
       function fixAll(){
@@ -122,10 +124,7 @@
       }
       var mo = new MutationObserver(fixAll);
       mo.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
-      document.addEventListener('DOMContentLoaded', function(){
-        fixAll();
-        setTimeout(fixAll, 300);
-      });
+      document.addEventListener('DOMContentLoaded', function(){ fixAll(); setTimeout(fixAll, 300); });
     })();
   </script>
 </body>
