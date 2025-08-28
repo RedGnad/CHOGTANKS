@@ -1,61 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CHOGTANKS - Monad Games ID Login</title>
-  <style>
-    :root {
-      --bg-color: #200052;      /* Fond bleu profond */
-      --btn-color: #A0055D;     /* Bouton Berry */
-      --btn-hover: #FBFAF9;     /* Hover Off-White */
-      --text-color: #000000;    /* Tout le texte en noir */
-    }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .container {
-      background: rgba(251, 250, 249, 0.9); /* Conteneur semi-opaque Off-White */
-      padding: 40px;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-      max-width: 400px;
-      width: 90%;
-      display: flex;
-      flex-direction: column;
-      align-items: center; /* TOUT centré, y compris le texte et boutons */
-      text-align: center;
-    }
-    .btn {
-      background: var(--btn-color);
-      color: var(--text-color);
-      border: none;
-      padding: 12px 24px;
-      border-radius: 12px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background .2s;
-      margin-top: 20px;
-    }
-    .btn:hover {
-      background: var(--btn-hover);
-      color: var(--btn-color);
-    }
-  </style>
-  <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
-</head>
-<body>
-  <div class="container">
-    <h1>🎮 Monad Games ID</h1>
-    <div id="root"></div>
-    <button class="btn">Connect</button>
-  </div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHOGTANKS - Monad Games ID Login</title>
+    <style>
+      :root {
+        --bg-color: #200052;      /* Fond bleu profond */
+        --btn-color: #A0055D;     /* Bouton Berry */
+        --btn-hover: #FBFAF9;     /* Hover Off-White */
+        --text-color: #FBFAF9;    /* Texte clair */
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        background: rgba(251, 250, 249, 0.9);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+      }
+      .btn {
+        background: var(--btn-color);
+        color: var(--text-color);
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background .2s;
+      }
+      .btn:hover {
+        background: var(--btn-hover);
+        color: var(--btn-color);
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-gDiq5l8I.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div id="root"></div>
+      <button class="btn">Se connecter</button>
+    </div>
+  </body>
 </html>
