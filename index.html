@@ -65,7 +65,19 @@
       width: auto;
       height: auto;
       display: block;
+      /* Animation vague (~2s) */
+      animation: verticalWave 2s ease-in-out infinite;
     }
+    /* Keyframes pour le mouvement vertical */
+    @keyframes verticalWave {
+      0%   { transform: translateY(0); }
+      25%  { transform: translateY(-10px); }
+      50%  { transform: translateY(0); }
+      75%  { transform: translateY(10px); }
+      100% { transform: translateY(0); }
+    }
+    /* Masque les titres injectés par l'app dans #root (évite la duplication) */
+    #root h1, #root h2 { display: none !important; }
   </style>
 </head>
 <body>
@@ -125,7 +137,3 @@
       var mo = new MutationObserver(fixAll);
       mo.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
       document.addEventListener('DOMContentLoaded', function(){ fixAll(); setTimeout(fixAll, 300); });
-    })();
-  </script>
-</body>
-</html>
