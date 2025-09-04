@@ -57,15 +57,6 @@
     }
     #root button:hover { transform: translateY(-1px) !important; }
     #root button:active { transform: translateY(0) !important; }
-
-    /* Image + animation vague verticale (~2s) */
-    @keyframes verticalWave {
-      0%   { transform: translateY(0); }
-      25%  { transform: translateY(-10px); }
-      50%  { transform: translateY(0); }
-      75%  { transform: translateY(10px); }
-      100% { transform: translateY(0); }
-    }
     .footer-image {
       margin-top: 24px;
       max-width: 95%;
@@ -74,11 +65,6 @@
       width: auto;
       height: auto;
       display: block;
-      animation: verticalWave 2s ease-in-out infinite;
-      will-change: transform;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .footer-image { animation: none; }
     }
   </style>
 </head>
@@ -87,13 +73,11 @@
     <h1 id="main-title">Monad Games ID</h1>
     <div id="root"></div>
   </div>
-
   <img
     src="https://green-adjacent-sheep-82.mypinata.cloud/ipfs/bafkreif4auid3swrpyk7dunmcgtioktjcvafuy3qndoedjdytwvdyegpsm"
     alt=""
     class="footer-image"
   />
-
   <script type="module" crossorigin src="./assets/index-s7RpQXlY.js"></script>
   <script>
     (function(){
@@ -140,4 +124,8 @@
       }
       var mo = new MutationObserver(fixAll);
       mo.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
-      document.addEventListener('DOMContentLoaded', function(){ fixAll(); setTimeout(fixAll, 300);
+      document.addEventListener('DOMContentLoaded', function(){ fixAll(); setTimeout(fixAll, 300); });
+    })();
+  </script>
+</body>
+</html>
